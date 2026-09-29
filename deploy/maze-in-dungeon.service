@@ -1,0 +1,15 @@
+[Unit]
+Description=Maze in Dungeon (gunicorn)
+After=network.target
+
+[Service]
+User=maze
+Group=maze
+WorkingDirectory=/srv/maze-in-dungeon
+EnvironmentFile=/srv/maze-in-dungeon/.env
+ExecStart=/srv/maze-in-dungeon/.venv/bin/gunicorn -c deploy/gunicorn.conf.py wsgi:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

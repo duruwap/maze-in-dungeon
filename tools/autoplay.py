@@ -35,12 +35,14 @@ async def run(base, out, diffs, mobile=False):
             await pg.wait_for_function("window.__mid && window.__mid.S.game")
             await pg.wait_for_timeout(500)
             await pg.evaluate("window.__bot = window.__autoplay({torches: true, teleports: true})")
+            await pg.wait_for_timeout(1500)
+            await pg.screenshot(path=os.path.join(out, f"game_{diff}_start{'_mobile' if mobile else ''}.png"))
             shot_mid = False
             for i in range(2400):
                 await pg.wait_for_timeout(250)
                 st = await pg.evaluate("({done: window.__bot.done, t: __mid.S.game ? __mid.S.game.elapsed : 0,"
                                        " lit: __mid.S.game ? __mid.S.game.litTorchCount() : 0})")
-                if not shot_mid and st["lit"] >= 6:
+                if not shot_mid and st["lit"] >= 7:
                     await pg.screenshot(path=os.path.join(out, f"game_{diff}_torches{'_mobile' if mobile else ''}.png"))
                     shot_mid = True
                 if st["done"]:
