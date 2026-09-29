@@ -57,6 +57,7 @@ export class Input {
     const R = 56;
     const start = (e) => {
       this._fireFirst();
+      if (!this.touchMode && this.onTouchMode) this.onTouchMode();
       this.touchMode = true;
       document.body.classList.add('touch');
       if (!this.enabled) return;

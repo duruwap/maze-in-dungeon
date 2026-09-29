@@ -340,7 +340,8 @@ body.touch #btn-e { display: block; }
   background: rgba(5, 6, 12, 0.88);
 }
 #bigmap { width: 100%; flex: 1; min-height: 0; image-rendering: pixelated; }
-.map-head { font-size: 20px; font-weight: 800; color: var(--teal); text-align: center; }
+.map-head { font-size: 20px; font-weight: 800; color: var(--teal); text-align: center; display: flex; gap: 14px; align-items: baseline; }
+#map-timer { color: var(--torch2); font-variant-numeric: tabular-nums; }
 .map-foot { color: var(--muted); font-size: 14px; text-align: center; }
 
 /* ---------- 오버레이 ---------- */
@@ -491,6 +492,7 @@ body.touch #btn-e { display: block; }
   #keyslots { top: calc(14px + var(--sat)); gap: 4px; }
   .result-body { flex-direction: column; }
   .stats { width: 100%; }
+  #hint { top: calc(186px + var(--sat)); width: 92vw; font-size: 14px; }
 }
 @media (max-height: 500px) and (orientation: landscape) {
   .screen { padding-top: calc(12px + var(--sat)); }

@@ -731,7 +731,10 @@ function frame(now) {
     renderer.render(dt, time);
     hud.update(g, now);
     updateMapView();
-    if (!$('mapview').hidden) drawBigMap();
+    if (!$('mapview').hidden) {
+      drawBigMap();
+      $('map-timer').textContent = formatTime(g.elapsed);
+    }
     if (now - S.lastSave > CONFIG.saveIntervalMs && g.started && !g.finished && !g.paused) {
       S.lastSave = now;
       saveProgress();
@@ -744,8 +747,13 @@ function frame(now) {
 }
 
 async function boot() {
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    document.body.classList.add('touch');
+    input.touchMode = true;
+  }
   input.bindTouch($('touch-surface'), $('joystick'), $('joystick').querySelector('.knob'));
   input.onFirstInput = () => audio.unlock();
+  input.onTouchMode = () => { if (S.game) hud.refreshHint(); };
   const lang = detectLang();
   await setLang(lang, new URLSearchParams(location.search).has('lang'));
   await sprites.load();
