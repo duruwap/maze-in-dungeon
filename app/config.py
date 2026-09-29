@@ -2,6 +2,14 @@
 import os
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+APP_NAME = "maze-in-dungeon"
+
+# 서버 표준 경로: 앱 /scsrun/app/<레포>, 데이터 /scsdat/app/<레포>, 로그 /scslog/app/<레포>
+# (해당 루트가 없는 로컬 개발 환경에서는 instance/ 와 stderr 로그를 쓴다)
+_SCSDAT = f"/scsdat/app/{APP_NAME}"
+_SCSLOG = f"/scslog/app/{APP_NAME}"
+DATA_DIR = os.environ.get("DATA_DIR") or (_SCSDAT if os.path.isdir("/scsdat/app") else os.path.join(BASE_DIR, "instance"))
+LOG_DIR = os.environ.get("LOG_DIR") or (_SCSLOG if os.path.isdir("/scslog/app") else "")
 
 
 class Config:
@@ -14,8 +22,9 @@ class Config:
     KAKAO_SDK_INTEGRITY = os.environ.get(
         "KAKAO_SDK_INTEGRITY",
         "sha384-DKYJZ8NLiK8MN4/C5P2dtSmLQ4KwPaoqAfyA/DfmEc1VDxu4yyC7wy6K1Hs90nka")
-    DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "instance", "maze.db"))
-    OG_CACHE_DIR = os.environ.get("OG_CACHE_DIR", os.path.join(BASE_DIR, "instance", "og_cache"))
+    DB_PATH = os.environ.get("DB_PATH", os.path.join(DATA_DIR, "maze.db"))
+    OG_CACHE_DIR = os.environ.get("OG_CACHE_DIR", os.path.join(DATA_DIR, "og_cache"))
+    LOG_DIR = LOG_DIR
     FONT_PATH = os.environ.get("FONT_PATH", "")
     PORT = int(os.environ.get("PORT", "15003"))
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("STATIC_MAX_AGE", "0"))

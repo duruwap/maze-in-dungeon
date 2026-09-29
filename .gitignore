@@ -9,3 +9,6 @@ og_cache/
 .venv/
 venv/
 backups/
+.env
+venv/
+console.log

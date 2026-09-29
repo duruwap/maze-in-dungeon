@@ -20,33 +20,44 @@ Pillow로 생성한 픽셀 아트. 빌드 도구 없음.
 
 ```bash
 git clone <repo> maze-in-dungeon && cd maze-in-dungeon
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-python wsgi.py                      # http://localhost:15003
+./startup.sh dev                    # venv 생성 + 의존성 + Flask 개발 서버 (http://localhost:15003)
 ```
 
-- DB는 첫 실행 때 `instance/maze.db`에 자동 생성됩니다 (`DB_PATH`로 변경).
+- `/scsdat/app`가 없는 로컬 환경에서는 DB가 `instance/maze.db`에, 로그는 터미널(stderr)에 남습니다.
 - 스프라이트는 `static/assets/`에 커밋되어 있습니다. 다시 만들려면 `python tools/make_sprites.py`
   (검토용 전체 시트는 `static/assets/_preview.png`).
 
-### 환경변수
+### 서버 경로 규칙
+
+| 구분 | 경로 |
+|---|---|
+| 앱 | `/scsrun/app/maze-in-dungeon` |
+| PID | `/scsrun/pid/maze-in-dungeon.pid` |
+| 데이터 | `/scsdat/app/maze-in-dungeon/` — `maze.db`(SQLite, WAL), `og_cache/`(결과 카드), `backups/` |
+| 로그 | `/scslog/app/maze-in-dungeon/app-YYYY-MM-DD.log` (일별, 앱 + gunicorn 접근/에러 로그), `console.log`(stderr 캡처) |
+
+`/scsdat/app`, `/scslog/app` 디렉토리가 있으면 앱이 자동으로 위 경로를 씁니다. `startup.sh`도 같은 값을 명시적으로 넘깁니다.
+
+### 설정
+
+- 포트·워커 수·경로·로그 보관 일수: `scsrun.conf` (git에 포함, 기본 포트 15003)
+- 비밀값: 프로젝트의 `.env` (git 제외, `.env.example` 참고)
 
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | `SECRET_KEY` | `dev-secret-change-me` | 운영에서는 반드시 긴 무작위 문자열 |
 | `BASE_URL` | `http://localhost:15003` | 공유 링크·OG 이미지 절대 주소 (운영: `https://maze.duruwap.com`) |
 | `KAKAO_JS_KEY` | (없음) | 카카오 JavaScript 키. 없으면 카카오 버튼만 숨고 나머지는 정상 동작 |
-| `DB_PATH` | `instance/maze.db` | SQLite 파일 경로 |
-| `PORT` | `15003` | `python wsgi.py` 개발 서버 포트 |
-| `OG_CACHE_DIR` | `instance/og_cache` | 결과 카드 PNG 파일 캐시 |
+| `DATA_DIR` / `DB_PATH` / `OG_CACHE_DIR` | `/scsdat/app/maze-in-dungeon` 하위 | 데이터 경로 |
+| `LOG_DIR` | `/scslog/app/maze-in-dungeon` | 일별 로그 디렉토리 |
+| `PORT` | `15003` | 서비스 포트 |
 | `FONT_PATH` | (없음) | 결과 카드 중국어 간체용 대체 폰트. 없으면 시스템 Noto Sans CJK → WenQuanYi 순으로 찾음 (한국어·영어·일본어는 Pretendard) |
 | `KAKAO_SDK_URL`, `KAKAO_SDK_INTEGRITY` | 2.7.4 | Kakao SDK 버전/SRI 해시 교체용 |
-
-`.env.example`을 참고하세요.
 
 ## 2. 테스트
 
 ```bash
+pip install -r requirements-dev.txt  # pytest, playwright (서버 운영에는 불필요)
 python -m pytest                    # 서버 테스트 (맵 생성 3,000개 포함, 약 1분)
 python -m pytest tests/e2e_smoke.py # Playwright 스모크 (Chromium 필요: playwright install chromium)
 ```
@@ -56,6 +67,7 @@ python -m pytest tests/e2e_smoke.py # Playwright 스모크 (Chromium 필요: pla
 | `tests/test_generator.py` | 결정성, 3난이도 × 1,000 시드 도달성·열쇠 수·구역·텔레포트 간격·탈출 방/광장 위치, hard 생성 200ms 이하 |
 | `tests/test_runs.py` | 정상 제출, 토큰 재사용/타인 토큰 거부, 너무 빠른 기록, 서버 경과 시간 초과, 분당 제한, 입력 검증, 공유/OG 4개 언어 |
 | `tests/test_rank.py` | 플레이어당 최고 기록만 반영, 동점 처리, 상위 % 계산, 10명 미만 분기, 상위 100 + 내 순위 |
+| `tests/test_logutil.py` | 날짜가 바뀌면 새 로그 파일(`app-YYYY-MM-DD.log`)에 기록 |
 | `tests/test_i18n.py` | 4개 언어 키 집합·변수 일치, 핵심 용어, 코드에서 쓰는 키가 모두 존재 |
 | `tests/e2e_smoke.py` | 타이틀 → 쉬움 시작 → 캔버스 렌더 → 콘솔 에러 0 → 4개 언어 전환 (PC·390×844) |
 
@@ -67,46 +79,56 @@ python tools/autoplay.py --out docs/screenshots            # PC
 python tools/autoplay.py --out docs/screenshots --mobile   # 390×844
 ```
 
-## 3. 배포 (Ubuntu + gunicorn + nginx + systemd)
+## 3. 배포 (Ubuntu + startup.sh(gunicorn) + nginx)
 
 ```bash
-# 1) 사용자와 코드
-sudo adduser --system --group --home /srv/maze-in-dungeon maze
-sudo git clone <repo> /srv/maze-in-dungeon && sudo chown -R maze:maze /srv/maze-in-dungeon
-cd /srv/maze-in-dungeon
-sudo -u maze python3 -m venv .venv
-sudo -u maze .venv/bin/pip install -r requirements.txt
-sudo apt install -y fonts-noto-cjk          # 결과 카드의 중국어 간체 대체 글꼴 (권장)
+# 1) 디렉토리 (최초 1회)
+sudo mkdir -p /scsrun/app /scsrun/pid /scsdat/app/maze-in-dungeon /scslog/app/maze-in-dungeon
+sudo chown -R ubuntu: /scsrun /scsdat/app/maze-in-dungeon /scslog/app/maze-in-dungeon
+sudo apt install -y python3-venv git curl fonts-noto-cjk   # fonts-noto-cjk: 결과 카드 중국어 간체 대체 글꼴 (권장)
 
-# 2) 환경변수
-sudo -u maze cp .env.example .env && sudo -u maze nano .env   # SECRET_KEY, BASE_URL, KAKAO_JS_KEY
+# 2) 코드와 비밀값
+cd /scsrun/app && git clone <repo> maze-in-dungeon && cd maze-in-dungeon
+cp .env.example .env && nano .env         # SECRET_KEY, BASE_URL, KAKAO_JS_KEY
 
-# 3) systemd
-sudo cp deploy/maze-in-dungeon.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now maze-in-dungeon
-sudo systemctl status maze-in-dungeon        # gunicorn이 127.0.0.1:15003 에서 대기
+# 3) 기동 (기존 프로세스 종료 → git pull → venv/의존성 → gunicorn 데몬 → 응답 확인)
+./startup.sh
+./startup.sh status                        # pid, 응답 코드, 오늘 로그 경로
+./startup.sh logs                          # 오늘 로그 tail -F
 
 # 4) nginx + HTTPS
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/maze.duruwap.com
 sudo ln -s /etc/nginx/sites-available/maze.duruwap.com /etc/nginx/sites-enabled/
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot certonly --nginx -d maze.duruwap.com    # 인증서 발급 후
+sudo certbot certonly --nginx -d maze.duruwap.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+| 명령 | 동작 |
+|---|---|
+| `./startup.sh` | 종료 → `git pull --ff-only` → 의존성 → 기동 (포트 15003) |
+| `./startup.sh --no-pull` | git pull 없이 재기동 |
+| `./startup.sh stop` / `status` / `logs` | 종료 / 상태 / 오늘 로그 보기 |
+| `./startup.sh dev` | Flask 개발 서버(포그라운드, 자동 리로드) |
+
+- 실제 동작은 공통 런처 `scripts/scs-run.sh`가 담당합니다 (`startup.sh`가 있는 디렉토리를 프로젝트로 사용).
+- 기동 시 포트가 이미 사용 중이면 중단하고, 기동 후 `HEALTH_TIMEOUT`초 안에 응답이 없으면 실패로 끝납니다.
+- 로그는 `app-YYYY-MM-DD.log`로 날짜마다 새 파일에 쌓이고, `LOG_KEEP_DAYS`(기본 30일)보다 오래된 파일은 기동 시 정리됩니다.
+  서버 예외는 스택트레이스로 남고, 사용자에게는 짧은 안내만 보냅니다.
+- 재부팅 자동 기동(선택): `sudo cp deploy/maze-in-dungeon.service /etc/systemd/system/ && sudo systemctl enable --now maze-in-dungeon`
+  (내부적으로 `startup.sh --no-pull` / `startup.sh stop` 호출). 또는 crontab `@reboot /scsrun/app/maze-in-dungeon/startup.sh --no-pull`.
 - DNS: `maze.duruwap.com` A 레코드를 서버 IP로.
-- 업데이트: `git pull && .venv/bin/pip install -r requirements.txt && sudo systemctl restart maze-in-dungeon`
-- 로그: `journalctl -u maze-in-dungeon -f` (서버 예외는 스택트레이스로 남고, 사용자에게는 짧은 안내만 보냄)
 
 ### DB 백업
 
 ```bash
-scripts/backup_db.sh                 # backups/maze-YYYYmmdd-HHMMSS.db.gz (14일 보관)
+scripts/backup_db.sh      # /scsdat/app/maze-in-dungeon/backups/maze-YYYYmmdd-HHMMSS.db.gz (14일 보관)
 # cron (매일 04:17)
-17 4 * * * cd /srv/maze-in-dungeon && DB_PATH=/srv/maze-in-dungeon/instance/maze.db scripts/backup_db.sh
+17 4 * * * /scsrun/app/maze-in-dungeon/scripts/backup_db.sh >> /scslog/app/maze-in-dungeon/backup.log 2>&1
 ```
 
-SQLite 온라인 백업 API를 쓰므로 서비스 중에도 안전합니다. 복구: 서비스를 멈추고 `gunzip`한 파일을 `DB_PATH`로 복사.
+SQLite 온라인 백업 API를 쓰므로 서비스 중에도 안전합니다. 복구: `./startup.sh stop` 후 `gunzip`한 파일을
+`/scsdat/app/maze-in-dungeon/maze.db`로 복사하고 `./startup.sh --no-pull`.
 
 ## 4. 카카오톡 공유 설정
 
@@ -129,7 +151,8 @@ static/js/      main, config(모든 수치), game, render, lighting, fov, input,
 static/i18n/    ko/en/zh/ja.json
 static/assets/  생성된 스프라이트 PNG + atlas.json + _preview.png
 tools/          make_sprites.py, autoplay.py/js
-deploy/         gunicorn, systemd, nginx 설정
+startup.sh      기동 스크립트 (scripts/scs-run.sh 공통 런처 호출), scsrun.conf 설정
+deploy/         gunicorn(일별 로그 포함), systemd(선택), nginx 설정
 ```
 
 게임 수치는 `static/js/config.js` 한 곳에서 조정합니다. 이동 속도·상호작용 거리·문 열기 시간을 바꾸면

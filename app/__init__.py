@@ -1,5 +1,4 @@
 """미로 인 던전 Flask 앱."""
-import logging
 import os
 
 from flask import Flask, jsonify, render_template, request
@@ -16,7 +15,8 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
     os.makedirs(app.config["OG_CACHE_DIR"], exist_ok=True)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from .logutil import configure
+    configure(None if app.config.get("TESTING") else app.config.get("LOG_DIR"))
 
     from . import db
     db.init_app(app)

@@ -1,15 +1,20 @@
+# 선택: 재부팅 시 자동 기동 (startup.sh 를 그대로 사용)
+#   sudo cp deploy/maze-in-dungeon.service /etc/systemd/system/ && sudo systemctl enable --now maze-in-dungeon
 [Unit]
-Description=Maze in Dungeon (gunicorn)
+Description=Maze in Dungeon (gunicorn via startup.sh)
 After=network.target
 
 [Service]
-User=maze
-Group=maze
-WorkingDirectory=/srv/maze-in-dungeon
-EnvironmentFile=/srv/maze-in-dungeon/.env
-ExecStart=/srv/maze-in-dungeon/.venv/bin/gunicorn -c deploy/gunicorn.conf.py wsgi:app
-Restart=always
-RestartSec=3
+Type=forking
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/scsrun/app/maze-in-dungeon
+PIDFile=/scsrun/pid/maze-in-dungeon.pid
+ExecStart=/scsrun/app/maze-in-dungeon/startup.sh --no-pull
+ExecStop=/scsrun/app/maze-in-dungeon/startup.sh stop
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=180
 
 [Install]
 WantedBy=multi-user.target

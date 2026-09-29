@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# SQLite 온라인 백업 (WAL 모드에서도 일관된 스냅샷). cron 예: 17 4 * * * /srv/maze-in-dungeon/scripts/backup_db.sh
+# SQLite 온라인 백업 (WAL 모드에서도 일관된 스냅샷).
+#   cron 예: 17 4 * * * /scsrun/app/maze-in-dungeon/scripts/backup_db.sh >> /scslog/app/maze-in-dungeon/backup.log 2>&1
 set -euo pipefail
-APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-DB_PATH="${DB_PATH:-$APP_DIR/instance/maze.db}"
-BACKUP_DIR="${BACKUP_DIR:-$APP_DIR/backups}"
+DATA_DIR="${DATA_DIR:-/scsdat/app/maze-in-dungeon}"
+DB_PATH="${DB_PATH:-$DATA_DIR/maze.db}"
+BACKUP_DIR="${BACKUP_DIR:-$DATA_DIR/backups}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 mkdir -p "$BACKUP_DIR"
 STAMP="$(date +%Y%m%d-%H%M%S)"

@@ -52,3 +52,10 @@
 - 공유 링크 `/share/<run_id>`는 OG 태그가 있는 랜딩 페이지이며, 사람이 열면 카드 이미지와 "나도 도전하기" 버튼을 보여준다.
 - gunicorn은 127.0.0.1:15003에 바인드하고 nginx가 HTTPS를 종료한다.
 - `docs/screenshots/`의 랭킹 화면은 스크린샷용 임시 DB에 넣은 데모 기록(탐험가 #1~#14)이다. 게임 화면·결과는 실제 봇 플레이.
+
+## 서버 경로 / 기동 (추가)
+- 앱 `/scsrun/app/maze-in-dungeon`, 데이터 `/scsdat/app/maze-in-dungeon`(maze.db, og_cache, backups), 로그 `/scslog/app/maze-in-dungeon`, PID `/scsrun/pid/maze-in-dungeon.pid`. `/scsdat/app`·`/scslog/app`가 있으면 앱이 자동으로 이 경로를 쓰고, 없으면(로컬) instance/와 stderr.
+- 기동은 리듬 마스터 챌린지와 같은 형식의 `startup.sh` → 공통 런처 `scripts/scs-run.sh`. 공통 런처 원본을 볼 수 없어 같은 인터페이스(start/--no-pull/stop/status/dev)로 새로 작성했고 `logs`를 추가했다.
+- 일별 로그는 회전(rename) 대신 "날짜가 바뀌면 새 파일을 여는" 핸들러(`app/logutil.py`)로 구현했다. gunicorn 워커 여러 개가 같은 파일에 append 해도 충돌하지 않는다. gunicorn 접근/에러 로그도 `logconfig_dict`로 같은 일별 파일에 남긴다. 데몬 stderr는 `console.log`로 캡처(보통 비어 있음).
+- 운영 의존성(requirements.txt)과 개발 의존성(requirements-dev.txt: pytest, playwright)을 분리해 서버 설치를 가볍게 했다.
+- venv 디렉토리는 리듬 마스터 챌린지와 같이 프로젝트의 `venv/`.
