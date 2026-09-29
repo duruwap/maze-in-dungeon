@@ -7,14 +7,15 @@ export class Sprites {
   }
 
   async load(base = '/static/assets/') {
-    const res = await fetch(`${base}atlas.json`);
+    const v = (window.__BOOT__ && window.__BOOT__.version) || '';
+    const res = await fetch(`${base}atlas.json?v=${v}`);
     const atlas = await res.json();
     this.tile = atlas.tile;
     const jobs = Object.entries(atlas.sheets).map(([name, file]) => new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => { this.sheets[name] = img; resolve(); };
       img.onerror = reject;
-      img.src = `${base}${file}?v=${atlas.version}`;
+      img.src = `${base}${file}?v=${v || atlas.version}`;
     }));
     await Promise.all(jobs);
     this.frames = atlas.frames;

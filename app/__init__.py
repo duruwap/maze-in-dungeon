@@ -6,6 +6,26 @@ from flask import Flask, jsonify, render_template, request
 from .config import Config
 
 APP_VERSION = "1.0.0"
+STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static"))
+
+
+def asset_version():
+    """정적 파일 내용이 바뀌면 달라지는 버전 문자열 (배포 즉시 브라우저 캐시 무효화)."""
+    import hashlib
+    h = hashlib.sha1()
+    for sub in ("js", "css", "i18n", "assets"):
+        root = os.path.join(STATIC_DIR, sub)
+        for dirpath, _dirs, files in sorted(os.walk(root)):
+            for fn in sorted(files):
+                p = os.path.join(dirpath, fn)
+                h.update(fn.encode())
+                with open(p, "rb") as f:
+                    h.update(f.read())
+    return h.hexdigest()[:10]
+
+
+def js_modules():
+    return sorted(f for f in os.listdir(os.path.join(STATIC_DIR, "js")) if f.endswith(".js"))
 
 
 def create_app(test_config=None):
@@ -31,13 +51,23 @@ def create_app(test_config=None):
 
     from .i18n import pick_lang, texts
 
+    version = asset_version()
+    modules = js_modules()
+
+    @app.after_request
+    def no_cache_html(resp):
+        # HTML/API 는 캐시하지 않는다 (정적 파일은 ?v= 버전으로 캐시)
+        if resp.mimetype in ("text/html", "application/json") and not request.path.startswith("/static/"):
+            resp.headers["Cache-Control"] = "no-store"
+        return resp
+
     @app.get("/")
     def index():
         lang = pick_lang(request)
         boot = {"kakaoKey": app.config["KAKAO_JS_KEY"], "baseUrl": app.config["BASE_URL"],
-                "version": APP_VERSION}
+                "version": version}
         return render_template("index.html", lang=lang, cfg=app.config, texts=texts(lang),
-                               boot=boot, version=APP_VERSION)
+                               boot=boot, version=version, modules=modules)
 
     @app.errorhandler(404)
     def not_found(_e):

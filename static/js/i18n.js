@@ -22,7 +22,8 @@ export function detectLang() {
 }
 
 async function fetchDict(lang) {
-  const res = await fetch(`/static/i18n/${lang}.json`);
+  const v = (window.__BOOT__ && window.__BOOT__.version) || '';
+  const res = await fetch(`/static/i18n/${lang}.json?v=${v}`);
   if (!res.ok) throw new Error('i18n_load_failed');
   return res.json();
 }
