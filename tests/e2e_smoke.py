@@ -1,4 +1,4 @@
-"""Playwright 스모크 테스트: 타이틀 → 쉬움 시작 → 캔버스 렌더 → 콘솔 에러 0 → 언어 전환.
+"""Playwright 스모크 테스트: 타이틀 → 게임 시작(1라운드) → 캔버스 렌더 → 콘솔 에러 0 → 언어 전환.
 
 실행: python -m pytest tests/e2e_smoke.py  (Chromium 필요)
 """
@@ -67,7 +67,8 @@ def test_smoke(server, browser, viewport):
     assert page.inner_text("#screen-title h1") == "미로 인 던전"
     page.wait_for_function("document.getElementById('explorer-name').textContent.length > 0")
 
-    page.click("[data-diff=easy]")
+    assert page.locator("#screen-title button.btn").count() == 1   # 메인 화면에는 게임 시작 버튼만
+    page.click("#btn-start")
     page.wait_for_selector("#hud:not([hidden])")
     page.keyboard.down("ArrowUp")
     page.wait_for_timeout(400)
@@ -75,7 +76,8 @@ def test_smoke(server, browser, viewport):
     page.wait_for_timeout(300)
     assert canvas_has_pixels(page) > 50
     assert page.inner_text("#timer") != "0:00.00"
-    assert page.locator("#keyslots canvas").count() == 2
+    assert page.locator("#keyslots canvas").count() == 2   # 1라운드(쉬움)
+    assert "1/3" in page.inner_text("#round-label")
 
     # 일시정지 → 언어 전환 → 누락 문구 없음
     page.keyboard.press("Escape")

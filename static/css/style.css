@@ -418,7 +418,7 @@ body.tpselect #btn-e { background: radial-gradient(circle, #b8fff4, #1f8a8a); co
 .result-body { display: flex; gap: 14px; align-items: center; justify-content: center; }
 .path-fig { margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .path-fig figcaption { font-size: 12px; color: var(--muted); }
-#result-path { width: 150px; height: 150px; border-radius: 8px; border: 2px solid #2a3150; background: #05060c; image-rendering: pixelated; }
+#result-path { width: 304px; height: 96px; border-radius: 8px; border: 2px solid #2a3150; background: #05060c; image-rendering: pixelated; }
 .stats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 150px; }
 .stats li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; background: rgba(20, 26, 46, 0.7); font-size: 15px; }
 .stats b { color: var(--torch2); }
@@ -514,3 +514,34 @@ body.tpselect #btn-e { background: radial-gradient(circle, #b8fff4, #1f8a8a); co
   #prompt { bottom: calc(20px + var(--sab)); }
   .result-body { flex-direction: row; }
 }
+
+/* ---------- 3라운드 ---------- */
+#round-label {
+  position: absolute;
+  top: calc(48px + var(--sat));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal);
+  text-shadow: 0 1px 0 #000;
+  white-space: nowrap;
+}
+body.mapopen #hud #round-label { visibility: hidden; }
+#round-clear {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 45%, rgba(40, 30, 20, 0.85), rgba(5, 6, 12, 0.95));
+  animation: fadein 0.3s;
+}
+.rc-inner { text-align: center; display: flex; flex-direction: column; gap: 8px; padding: 16px; }
+.rc-title { font-size: clamp(28px, 8vw, 44px); font-weight: 900; color: var(--torch2); text-shadow: 0 3px 0 #7a3f10, 0 0 30px rgba(255, 179, 71, 0.5); }
+.rc-time { font-size: clamp(40px, 12vw, 64px); font-weight: 900; font-variant-numeric: tabular-nums; color: #fff6d0; }
+.rc-total { font-size: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rc-next { margin-top: 14px; font-size: 20px; font-weight: 800; color: var(--teal); }
+.stats li.split b { font-variant-numeric: tabular-nums; }
+.stats li.split span { color: var(--muted); }

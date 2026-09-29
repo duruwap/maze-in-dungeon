@@ -4,10 +4,17 @@ from app.db import connect
 from tests.conftest import new_player
 
 
-def start(client, pid, mode="free", difficulty="easy"):
-    r = client.get(f"/api/maze?mode={mode}&difficulty={difficulty}", headers={"X-Player-Id": pid})
+def start(client, pid, rounds=3):
+    """3라운드 판: 1라운드에서 토큰을 받고 2·3라운드를 같은 토큰으로 요청한다."""
+    h = {"X-Player-Id": pid}
+    r = client.get("/api/maze?round=1", headers=h)
     assert r.status_code == 200
-    return r.get_json()
+    first = r.get_json()
+    assert first["difficulty"] == "easy" and first["token"]
+    for n, diff in ((2, "normal"), (3, "hard"))[:rounds - 1]:
+        j = client.get(f"/api/maze?round={n}&token={first['token']}", headers=h).get_json()
+        assert j["difficulty"] == diff and j["token"] == first["token"]
+    return first
 
 
 def age_session(app, token, seconds):
@@ -62,7 +69,7 @@ def test_token_of_other_player_rejected(app, client):
 
 def test_too_fast_rejected(app, client):
     p = new_player(client)
-    m = start(client, p["id"], difficulty="hard")
+    m = start(client, p["id"])
     age_session(app, m["token"], 3600)
     mt = min_time(app, m["token"])
     r = submit(client, p["id"], m["token"], mt - 1)
@@ -74,11 +81,11 @@ def test_too_fast_rejected(app, client):
 def test_longer_than_server_elapsed_rejected(app, client):
     p = new_player(client)
     m = start(client, p["id"])
-    age_session(app, m["token"], 30)
-    r = submit(client, p["id"], m["token"], 45_000)
+    age_session(app, m["token"], 300)
+    r = submit(client, p["id"], m["token"], 330_000)
     assert r.status_code == 400 and r.get_json()["error"] == "time_exceeds_server"
     # 2초 여유는 허용
-    assert submit(client, p["id"], m["token"], 31_500).status_code == 200
+    assert submit(client, p["id"], m["token"], 301_500).status_code == 200
 
 
 def test_rate_limit(app, client):
@@ -127,3 +134,47 @@ def test_share_and_og(app, client):
     assert "미로 인 던전 탈출 1:35.31" in client.get(f"/share/{run_id}?lang=ko").get_data(as_text=True)
     assert client.get("/share/nope!!").status_code == 404
     assert client.get("/og/doesnotexist.png").status_code == 404
+
+
+def test_incomplete_run_rejected(app, client):
+    p = new_player(client)
+    m = start(client, p["id"], rounds=2)
+    age_session(app, m["token"], 600)
+    r = submit(client, p["id"], m["token"], 300_000)
+    assert r.status_code == 400 and r.get_json()["error"] == "incomplete_run"
+
+
+def test_round_order_and_owner(app, client):
+    a, b = new_player(client), new_player(client)
+    tok = client.get("/api/maze?round=1", headers={"X-Player-Id": a["id"]}).get_json()["token"]
+    r = client.get(f"/api/maze?round=3&token={tok}", headers={"X-Player-Id": a["id"]})
+    assert r.status_code == 400 and r.get_json()["error"] == "round_out_of_order"
+    r = client.get(f"/api/maze?round=2&token={tok}", headers={"X-Player-Id": b["id"]})
+    assert r.status_code == 400 and r.get_json()["error"] == "invalid_token"
+    assert client.get("/api/maze?round=4", headers={"X-Player-Id": a["id"]}).status_code == 400
+
+
+def test_min_time_accumulates_rounds(app, client):
+    p = new_player(client)
+    m = start(client, p["id"], rounds=1)
+    one = min_time(app, m["token"])
+    h = {"X-Player-Id": p["id"]}
+    client.get(f"/api/maze?round=2&token={m['token']}", headers=h)
+    client.get(f"/api/maze?round=3&token={m['token']}", headers=h)
+    assert min_time(app, m["token"]) > one
+
+
+def test_splits_saved(app, client):
+    p = new_player(client)
+    m = start(client, p["id"])
+    age_session(app, m["token"], 600)
+    r = submit(client, p["id"], m["token"], 180_000, splits=[30_000, 60_000, 90_000], path_preview="AAAA|AAAA|AAAA")
+    assert r.status_code == 200, r.get_json()
+    runs = client.get(f"/api/players/{p['id']}/runs").get_json()["runs"]
+    assert runs[0]["splits"] == "[30000, 60000, 90000]" and runs[0]["board"].startswith("run:")
+    # 합계와 다른 구간 기록은 거부
+    m2 = start(client, p["id"])
+    age_session(app, m2["token"], 600)
+    assert submit(client, p["id"], m2["token"], 180_000, splits=[1, 2, 3]).status_code == 400
+    lb = client.get(f"/api/leaderboard?board=run&player_id={p['id']}").get_json()
+    assert lb["me"]["time_ms"] == 180_000

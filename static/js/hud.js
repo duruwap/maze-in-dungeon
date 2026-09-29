@@ -105,7 +105,7 @@ export class Hud {
   }
 
   update(g, now) {
-    const tm = formatTime(g.elapsed);
+    const tm = formatTime((this.timeOffset || 0) + g.elapsed);   // 3라운드 누적 시간
     if (tm !== this.lastTimer) { this.timer.textContent = tm; this.lastTimer = tm; }
     this._drawSlots(g);
 

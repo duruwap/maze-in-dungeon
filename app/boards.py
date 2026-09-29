@@ -4,7 +4,13 @@ import re
 from .timeutil import daily_date, iso_week
 
 DIFFS = ("easy", "normal", "hard")
-BOARD_RE = re.compile(r"^(daily:\d{4}-\d{2}-\d{2}|free:(easy|normal|hard):\d{4}-W\d{2})$")
+ROUNDS = DIFFS          # 1라운드 쉬움 → 2라운드 보통 → 3라운드 어려움
+BOARD_RE = re.compile(r"^(run:\d{4}-\d{2}-\d{2}|daily:\d{4}-\d{2}-\d{2}|free:(easy|normal|hard):\d{4}-W\d{2})$")
+
+
+def run_board(dt=None):
+    """3라운드 합계 기록의 일일 랭킹 보드 (한국 시간 자정 초기화)."""
+    return f"run:{daily_date(dt)}"
 
 
 def daily_board(dt=None):
@@ -17,6 +23,8 @@ def free_board(difficulty, dt=None):
 
 def resolve_board(value):
     """'daily'/'easy'/... 단축형을 현재 보드 키로. 형식이 틀리면 None."""
+    if value in ("run", "today"):
+        return run_board()
     if value == "daily":
         return daily_board()
     if value in DIFFS:

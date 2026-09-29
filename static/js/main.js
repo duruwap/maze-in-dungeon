@@ -25,7 +25,6 @@ const S = {
   fps: 60,
   result: null,
   clearTimer: null,
-  rankingTab: 'daily',
 };
 
 const sprites = new Sprites();
@@ -71,20 +70,49 @@ function closeModal(id) {
 }
 
 // ---------------- 게임 시작/종료 ----------------
-async function startGame(mode, difficulty) {
+// 한 판 = 3라운드 (쉬움 → 보통 → 어려움). 라운드 기록의 합계로 순위를 매긴다.
+const ROUNDS = 3;
+
+function newSession() {
+  return { round: 0, token: null, board: null, difficulty: null, resumed: false,
+    splits: [], torches: 0, teleports: 0, explored: [], previews: [], snaps: [] };
+}
+
+function startRun() {
+  clearTimeout(S.clearTimer);
+  remove('save');
+  return loadRound(newSession(), 1);
+}
+
+async function loadRound(session, n) {
   loading(true, 'title.generating');
   try {
     await api.ensurePlayer();
-    const maze = await api.getMaze(mode, difficulty);
-    const session = { mode, difficulty: maze.difficulty, board: maze.board, token: maze.token };
+    const maze = await api.getMaze(n, n === 1 ? null : session.token);
+    if (n === 1) session.token = maze.token;
+    session.round = n;
+    session.board = maze.board;
+    session.difficulty = maze.difficulty;
     delete maze.token;
     beginGame(maze, session, null);
   } catch (e) {
-    console.warn('[game] start failed', e);
+    console.warn('[game] round load failed', e);
     flashMsg(t('error.network'));
+    if (n > 1) quitToTitle();
   } finally {
     loading(false);
+    $('round-clear').hidden = true;
   }
+}
+
+function splitSum(session) {
+  return session.splits.reduce((a, b) => a + b, 0);
+}
+
+function updateRoundLabel() {
+  const s = S.session;
+  if (!s || !s.round) return;
+  $('round-label').textContent = t('hud.round', { n: s.round, difficulty: t(`difficulty.${s.difficulty}`) });
 }
 
 function beginGame(maze, session, state) {
@@ -98,7 +126,9 @@ function beginGame(maze, session, state) {
   renderer.setGame(game);
   minimap.setGame(game);
   const first = !load('played', false);
-  hud.setGame(game, first);
+  hud.setGame(game, first && session.round === 1);
+  hud.timeOffset = splitSum(session);
+  updateRoundLabel();
   save('played', true);
   closeModal('modal-pause');
   showScreen(null);
@@ -114,7 +144,7 @@ function beginGame(maze, session, state) {
 function saveProgress() {
   const g = S.game;
   if (!g || g.finished) return;
-  save('save', { maze: g.maze, session: { ...S.session, token: null }, state: g.serialize(), savedAt: Date.now() });
+  save('save', { maze: g.maze, session: { ...S.session, token: null, snaps: [] }, state: g.serialize(), savedAt: Date.now() });
 }
 
 function quitToTitle() {
@@ -273,8 +303,32 @@ function onClear(g) {
   const p = g.player;
   particles.burst(p.x, p.y - 0.5, 'gold', 50, 3, 1.4, { layer: 'over', glow: true, size: 1.5 });
   remove('save');
-  S.clearTimer = setTimeout(() => showResult(g), 1900);
+  // 라운드 기록 누적
+  const ses = S.session;
+  ses.splits.push(Math.round(g.elapsed));
+  ses.torches += g.litTorchCount();
+  ses.teleports += countActivated(g);
+  ses.explored.push(g.exploredRatio());
+  ses.previews.push(g.pathPreview());
+  ses.snaps.push({ W: g.W, H: g.H, seen: g.seen.slice(), tiles: g.tiles, exit: g.maze.exit });
+  if (ses.round < ROUNDS) {
+    S.clearTimer = setTimeout(() => showRoundClear(ses), 1600);
+  } else {
+    S.clearTimer = setTimeout(() => showResult(ses), 1900);
+  }
 }
+
+function showRoundClear(ses) {
+  if (S.session !== ses) return;
+  const n = ses.round;
+  $('rc-title').textContent = t('round.clear', { n });
+  $('rc-time').textContent = formatTime(ses.splits[n - 1]);
+  $('rc-total').textContent = t('round.total', { time: formatTime(splitSum(ses)) });
+  $('rc-next').textContent = t('round.next', { n: n + 1, difficulty: t(`difficulty.${['easy', 'normal', 'hard'][n]}`) });
+  $('round-clear').hidden = false;
+  S.clearTimer = setTimeout(() => { if (S.session === ses) loadRound(ses, n + 1); }, 2200);
+}
+
 
 // ---------------- 결과 ----------------
 function countActivated(g) {
@@ -283,14 +337,14 @@ function countActivated(g) {
   return n;
 }
 
-async function showResult(g) {
-  const s = S.session;
+async function showResult(s) {
   const r = {
-    timeMs: Math.round(g.elapsed),
-    torches: g.litTorchCount(),
-    teleports: countActivated(g),
-    explored: g.exploredRatio(),
-    mode: s.mode, difficulty: s.difficulty, board: s.board,
+    timeMs: splitSum(s),
+    splits: s.splits.slice(),
+    torches: s.torches,
+    teleports: s.teleports,
+    explored: s.explored.reduce((a, b) => a + b, 0) / Math.max(1, s.explored.length),
+    board: s.board,
     runId: null, rank: null, total: null, topPercent: null, showPercent: false,
   };
   S.result = r;
@@ -299,17 +353,21 @@ async function showResult(g) {
   $('stat-torches').textContent = t('result.count', { n: r.torches });
   $('stat-teleports').textContent = t('result.count', { n: r.teleports });
   $('stat-explored').textContent = t('result.percent', { percent: Math.round(r.explored * 100) });
+  for (let i = 0; i < ROUNDS; i++) {
+    $(`split-${i + 1}-label`).textContent = `${t('result.round', { n: i + 1 })} · ${t(`difficulty.${['easy', 'normal', 'hard'][i]}`)}`;
+    $(`split-${i + 1}`).textContent = r.splits[i] != null ? formatTime(r.splits[i]) : '-';
+  }
   $('result-newbest').hidden = true;
   $('result-rank').textContent = '';
   $('stat-best').textContent = '';
-  drawResultPath(g);
+  drawResultPath(s.snaps);
   updateShareButtons();
 
   const localKey = `best.${s.board}`;
   const prevLocal = load(localKey);
   if (prevLocal == null || r.timeMs < prevLocal) save(localKey, r.timeMs);
 
-  if (g.resumed || !s.token) {
+  if (s.resumed || !s.token) {
     $('result-note').textContent = t('result.resumed_note');
     const best = Math.min(r.timeMs, prevLocal == null ? Infinity : prevLocal);
     $('stat-best').textContent = t('result.best', { time: formatTime(best) });
@@ -323,7 +381,8 @@ async function showResult(g) {
       torches: r.torches,
       teleports: r.teleports,
       explored: Math.round(r.explored * 1000) / 1000,
-      path_preview: g.pathPreview(),
+      path_preview: s.previews.join('|'),
+      splits: r.splits,
       lang: getLang(),
     });
     s.token = null;
@@ -349,24 +408,31 @@ function renderRank(r) {
     : t('result.rank_of', { rank: r.rank, total: r.total });
 }
 
-function drawResultPath(g) {
+/** 라운드별 탐험 경로 3개를 나란히 */
+function drawResultPath(snaps) {
   const c = $('result-path');
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const size = Math.round(150 * dpr);
-  c.width = c.height = size;
+  const box = Math.round(96 * dpr);
+  const gap = Math.round(8 * dpr);
+  c.width = box * 3 + gap * 2;
+  c.height = box;
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const cell = size / g.W;
-  for (let i = 0; i < g.W * g.H; i++) {
-    const s = g.seen[i];
-    if (!s) continue;
-    const wall = g.tiles[i] === 0;
-    ctx.fillStyle = wall ? '#2a3150' : s === 2 ? '#ffb347' : '#3b3f5c';
-    ctx.fillRect((i % g.W) * cell, ((i / g.W) | 0) * cell, Math.ceil(cell), Math.ceil(cell));
-  }
-  const e = g.maze.exit;
-  ctx.fillStyle = '#48e0d0';
-  ctx.fillRect((e.x - 0.5) * cell, (e.y - 0.5) * cell, cell * 2, cell * 2);
+  ctx.clearRect(0, 0, c.width, c.height);
+  (snaps || []).forEach((g, k) => {
+    const ox = k * (box + gap);
+    ctx.fillStyle = '#05060c';
+    ctx.fillRect(ox, 0, box, box);
+    const cell = box / g.W;
+    for (let i = 0; i < g.W * g.H; i++) {
+      const s = g.seen[i];
+      if (!s) continue;
+      ctx.fillStyle = g.tiles[i] === 0 ? '#2a3150' : s === 2 ? '#ffb347' : '#3b3f5c';
+      ctx.fillRect(ox + (i % g.W) * cell, ((i / g.W) | 0) * cell, Math.ceil(cell), Math.ceil(cell));
+    }
+    ctx.fillStyle = '#48e0d0';
+    ctx.fillRect(ox + (g.exit.x - 0.5) * cell, (g.exit.y - 0.5) * cell, cell * 2, cell * 2);
+  });
 }
 
 function updateShareButtons() {
@@ -381,23 +447,20 @@ function updateShareButtons() {
 }
 
 // ---------------- 랭킹 ----------------
-async function openRanking(tab) {
-  S.rankingTab = tab || S.rankingTab;
+async function openRanking() {
   showScreen('ranking');
-  document.querySelectorAll('#screen-ranking .tab').forEach((b) => b.classList.toggle('on', b.dataset.board === S.rankingTab));
   const list = $('ranking-list');
   const me = $('ranking-me');
   list.innerHTML = `<li class="ranking-empty">${t('ranking.loading')}</li>`;
   me.innerHTML = '';
   $('ranking-sub').innerHTML = '';
-  const tab0 = S.rankingTab;
   try {
     await api.ensurePlayer();
-    const data = await api.leaderboard(tab0);
-    if (S.rankingTab !== tab0 || S.screen !== 'ranking') return;
+    const data = await api.leaderboard('run');
+    if (S.screen !== 'ranking') return;
     const sub = $('ranking-sub');
     const a = document.createElement('span');
-    a.textContent = t(tab0 === 'daily' ? 'ranking.reset_daily' : 'ranking.reset_weekly');
+    a.textContent = t('ranking.reset_daily');
     const b = document.createElement('span');
     b.textContent = t('ranking.players', { n: data.total });
     sub.append(a, b);
@@ -440,11 +503,11 @@ function rankRow(e, isMe, tag = 'li') {
 async function refreshTitle() {
   const p = api.getPlayer();
   $('explorer-name').textContent = p ? t('explorer_name', { n: p.number }) : '';
-  const localBest = load(`best.daily:${todayKst()}`);
+  const localBest = load(`best.run:${todayKst()}`);
   $('today-best').textContent = localBest != null ? t('title.today_best', { time: formatTime(localBest) }) : t('title.no_record');
   if (!p) return;
   try {
-    const data = await api.leaderboard('daily');
+    const data = await api.leaderboard('run');
     if (data.me && data.me.time_ms != null) {
       $('today-best').textContent = t('title.today_best', { time: formatTime(data.me.time_ms) });
     }
@@ -601,11 +664,9 @@ function bindSettings() {
 // ---------------- 이벤트 바인딩 ----------------
 function bindUi() {
   const click = (id, fn) => $(id).addEventListener('click', (e) => { audio.unlock(); fn(e); });
-  click('btn-daily', () => startGame('daily', 'normal'));
-  document.querySelectorAll('.btn.diff').forEach((b) => b.addEventListener('click', () => { audio.unlock(); startGame('free', b.dataset.diff); }));
-  click('btn-ranking', () => openRanking('daily'));
+  click('btn-start', () => startRun());
+  click('btn-ranking', () => openRanking());
   click('btn-ranking-back', () => showScreen(S.result ? 'result' : 'title'));
-  document.querySelectorAll('#screen-ranking .tab').forEach((b) => b.addEventListener('click', () => openRanking(b.dataset.board)));
 
   click('btn-settings', () => openModal('modal-settings'));
   click('btn-howto', () => { drawHowto(); openModal('modal-howto'); });
@@ -637,10 +698,8 @@ function bindUi() {
   click('btn-pause', () => setPaused(true));
   click('btn-resume', () => setPaused(false));
   click('btn-newmap', () => {
-    const s = S.session;
     setPaused(false);
-    remove('save');
-    startGame(s.mode, s.difficulty);
+    startRun();
   });
   click('btn-totitle', quitToTitle);
   $('btn-e').addEventListener('touchstart', (e) => { e.preventDefault(); audio.unlock(); input.push({ type: 'interact' }); }, { passive: false });
@@ -651,8 +710,8 @@ function bindUi() {
   $('mapview').addEventListener('click', (e) => { if (e.target.id === 'mapview' && S.game) { S.game.cancelOverlay(); updateMapView(); } });
 
   // 결과
-  click('btn-retry', () => startGame(S.session.mode, S.session.difficulty));
-  click('btn-result-ranking', () => openRanking(S.session.mode === 'daily' ? 'daily' : S.session.difficulty));
+  click('btn-retry', () => startRun());
+  click('btn-result-ranking', () => openRanking());
   click('btn-result-title', () => { S.result = null; S.game = null; showScreen('title'); });
   click('btn-kakao', () => { if (!shareKakao(S.result)) flashMsg(t('error.generic')); });
   click('btn-webshare', () => webShare(S.result));
@@ -662,7 +721,7 @@ function bindUi() {
   click('btn-resume-yes', () => {
     const sv = load('save');
     closeModal('modal-resume');
-    if (sv) beginGame(sv.maze, sv.session, sv.state);
+    if (sv) beginGame(sv.maze, { ...sv.session, resumed: true, snaps: [] }, sv.state);
   });
   click('btn-resume-no', () => { remove('save'); closeModal('modal-resume'); });
 
@@ -682,7 +741,8 @@ function bindUi() {
   onLangChange(() => {
     if (S.screen === 'title') refreshTitle();
     if (S.screen === 'result' && S.result) { renderRank(S.result); updateShareButtons(); }
-    if (S.screen === 'ranking') openRanking(S.rankingTab);
+    if (S.screen === 'ranking') openRanking();
+    updateRoundLabel();
     if (S.game && hud) hud.refreshHint();
     if (!$('modal-howto').hidden) drawHowto();
   });
@@ -750,7 +810,7 @@ function frame(now) {
     updateMapView();
     if (!$('mapview').hidden) {
       drawBigMap();
-      $('map-timer').textContent = formatTime(g.elapsed);
+      $('map-timer').textContent = formatTime((hud.timeOffset || 0) + g.elapsed);
     }
     if (now - S.lastSave > CONFIG.saveIntervalMs && g.started && !g.finished && !g.paused) {
       S.lastSave = now;
@@ -784,10 +844,11 @@ async function boot() {
   showScreen('title');
   api.ensurePlayer().then(refreshTitle).catch((e) => console.warn('[player]', e));
   const sv = load('save');
-  if (sv && sv.maze && sv.state && Date.now() - sv.savedAt < SAVE_MAX_AGE) openModal('modal-resume');
+  if (sv && sv.maze && sv.state && sv.session && Array.isArray(sv.session.splits)
+      && Date.now() - sv.savedAt < SAVE_MAX_AGE) openModal('modal-resume');
   else if (sv) remove('save');
   if (new URLSearchParams(location.search).has('debug')) {
-    window.__mid = { S, input, startGame, sprites, renderer: () => renderer, LANGS };
+    window.__mid = { S, input, startRun, sprites, renderer: () => renderer, LANGS };
   }
   requestAnimationFrame(frame);
 }

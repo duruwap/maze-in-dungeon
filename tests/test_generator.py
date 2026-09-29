@@ -84,16 +84,18 @@ def test_hard_generation_time():
 def test_maze_api(client):
     from tests.conftest import new_player
     p = new_player(client)
-    r = client.get("/api/maze?mode=daily", headers={"X-Player-Id": p["id"]})
+    h = {"X-Player-Id": p["id"]}
+    r = client.get("/api/maze?round=1", headers=h)
     assert r.status_code == 200
     j = r.get_json()
-    assert j["difficulty"] == "normal" and j["seed"].startswith("daily-")
-    assert j["board"] == "daily:" + j["seed"][6:16]
-    assert "min_time_ms" not in j and j["token"]
-    r2 = client.get("/api/maze?mode=daily", headers={"X-Player-Id": p["id"]}).get_json()
-    # 오늘의 던전도 판마다 새 맵 (보드는 같은 날짜)
-    assert r2["seed"] != j["seed"] and r2["token"] != j["token"] and r2["board"] == j["board"]
-    r = client.get("/api/maze?mode=free&difficulty=hard", headers={"X-Player-Id": p["id"]})
-    assert r.get_json()["width"] == 61 and r.get_json()["board"].startswith("free:hard:")
-    assert client.get("/api/maze?mode=free&difficulty=xx", headers={"X-Player-Id": p["id"]}).status_code == 400
-    assert client.get("/api/maze?mode=daily").status_code == 401
+    assert j["difficulty"] == "easy" and j["round"] == 1 and j["width"] == 25
+    assert j["board"].startswith("run:") and "min_time_ms" not in j and j["token"]
+    # 판마다 새 맵
+    j2 = client.get("/api/maze?round=1", headers=h).get_json()
+    assert j2["seed"] != j["seed"] and j2["token"] != j["token"] and j2["board"] == j["board"]
+    r = client.get(f"/api/maze?round=2&token={j['token']}", headers=h).get_json()
+    assert r["width"] == 41 and r["difficulty"] == "normal"
+    r = client.get(f"/api/maze?round=3&token={j['token']}", headers=h).get_json()
+    assert r["width"] == 61 and r["difficulty"] == "hard"
+    assert client.get("/api/maze?round=x", headers=h).status_code == 400
+    assert client.get("/api/maze?round=1").status_code == 401

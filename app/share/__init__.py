@@ -24,11 +24,9 @@ def share_texts(run, rank, lang):
         rank_text = t(lang, "top_percent", percent=rank["top_percent"])
     else:
         rank_text = t(lang, "result.rank_of", rank=rank["rank"], total=rank["total"])
-    daily = run["board"].startswith("daily:")
-    diff = t(lang, "share.daily_label") if daily else t(lang, f"difficulty.{run['difficulty']}")
     return {
         "title": t(lang, "share.title", time=format_time(run["time_ms"])),
-        "desc": t(lang, "share.desc", rank_text=rank_text, torches=run["torches"], difficulty=diff),
+        "desc": t(lang, "share.desc", rank_text=rank_text, torches=run["torches"]),
     }
 
 
@@ -59,12 +57,11 @@ def share_page(run_id):
                                play_url=f"/?lang={lang}", cfg=current_app.config), 404
     rank = time_rank(get_db(), run["board"], run["time_ms"])
     st = share_texts(run, rank, lang)
-    daily = run["board"].startswith("daily:")
     return render_template(
         "share.html", lang=lang, html_lang=HTML_LANG[lang], texts=texts(lang), found=True, base=base,
         title=st["title"], desc=st["desc"], time=format_time(run["time_ms"]),
         image=f"{base}/og/{run_id}.png?lang={lang}", url=f"{base}/share/{run_id}?lang={lang}",
-        play_url=f"/?lang={lang}" + ("&mode=daily" if daily else ""), cfg=current_app.config)
+        play_url=f"/?lang={lang}", cfg=current_app.config)
 
 
 @bp.get("/og/default.png")

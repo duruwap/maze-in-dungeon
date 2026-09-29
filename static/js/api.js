@@ -37,9 +37,10 @@ export async function ensurePlayer() {
   return player;
 }
 
-export function getMaze(mode, difficulty) {
-  const q = new URLSearchParams({ mode });
-  if (mode === 'free') q.set('difficulty', difficulty);
+/** round: 1(쉬움) 2(보통) 3(어려움). 2·3라운드는 1라운드에서 받은 판 토큰을 넘긴다 */
+export function getMaze(round, token) {
+  const q = new URLSearchParams({ round: String(round) });
+  if (token) q.set('token', token);
   return request('GET', `/api/maze?${q}`);
 }
 

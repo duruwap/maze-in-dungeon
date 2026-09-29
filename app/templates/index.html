@@ -33,6 +33,7 @@
 <div id="hud" hidden>
   <div id="keyslots" aria-label="keys"></div>
   <div id="timer">0:00.00</div>
+  <div id="round-label"></div>
   <canvas id="minimap" data-i18n-aria="hud.map"></canvas>
   <button id="btn-pause" class="icon-btn" data-i18n-aria="hud.pause"><span class="pause-bars"></span></button>
   <div id="prompt"><span class="ekey">E</span><span id="prompt-text"></span></div>
@@ -54,6 +55,7 @@
 <!-- 우상단 아이콘 -->
 <div id="topicons">
   <button class="icon-btn" id="btn-fullscreen" data-i18n-aria="settings.fullscreen">⛶</button>
+  <button class="icon-btn" id="btn-ranking" data-i18n-aria="ranking.title">🏆</button>
   <button class="icon-btn" id="btn-settings" data-i18n-aria="common.settings">⚙️</button>
   <button class="icon-btn" id="btn-howto" data-i18n-aria="common.howto">📖</button>
   <button class="icon-btn" id="btn-lang" data-i18n-aria="common.language">🌐</button>
@@ -66,18 +68,9 @@
     <img id="logo" src="{{ url_for('static', filename='assets/logo.png') }}" alt="">
     <h1 data-i18n="title">{{ texts['title'] }}</h1>
     <p class="subtitle" data-i18n="subtitle"></p>
-    <button id="btn-daily" class="btn big primary">
-      <span data-i18n="daily"></span><small data-i18n="title.daily_desc"></small>
+    <button id="btn-start" class="btn big primary">
+      <span data-i18n="title.start"></span><small data-i18n="title.start_desc"></small>
     </button>
-    <div class="free-box">
-      <div class="free-label" data-i18n="title.free"></div>
-      <div class="diff-row">
-        <button class="btn diff" data-diff="easy"><span data-i18n="difficulty.easy"></span><small data-i18n="difficulty.easy_desc"></small></button>
-        <button class="btn diff" data-diff="normal"><span data-i18n="difficulty.normal"></span><small data-i18n="difficulty.normal_desc"></small></button>
-        <button class="btn diff" data-diff="hard"><span data-i18n="difficulty.hard"></span><small data-i18n="difficulty.hard_desc"></small></button>
-      </div>
-    </div>
-    <button id="btn-ranking" class="btn" data-i18n="title.ranking"></button>
     <div class="title-foot"><span id="explorer-name"></span><span id="today-best"></span></div>
   </div>
 </section>
@@ -94,6 +87,9 @@
     <div class="result-body">
       <figure class="path-fig"><canvas id="result-path"></canvas><figcaption data-i18n="result.path"></figcaption></figure>
       <ul class="stats">
+        <li class="split"><span id="split-1-label"></span><b id="split-1"></b></li>
+        <li class="split"><span id="split-2-label"></span><b id="split-2"></b></li>
+        <li class="split"><span id="split-3-label"></span><b id="split-3"></b></li>
         <li><span data-i18n="result.torches"></span><b id="stat-torches"></b></li>
         <li><span data-i18n="result.teleports"></span><b id="stat-teleports"></b></li>
         <li><span data-i18n="result.explored"></span><b id="stat-explored"></b></li>
@@ -120,12 +116,6 @@
       <button class="btn ghost small" id="btn-ranking-back" data-i18n="common.back"></button>
       <h2 data-i18n="ranking.title"></h2>
       <span></span>
-    </div>
-    <div class="tabs" role="tablist">
-      <button class="tab" data-board="daily" data-i18n="ranking.tab_daily"></button>
-      <button class="tab" data-board="easy" data-i18n="difficulty.easy"></button>
-      <button class="tab" data-board="normal" data-i18n="difficulty.normal"></button>
-      <button class="tab" data-board="hard" data-i18n="difficulty.hard"></button>
     </div>
     <div class="ranking-sub" id="ranking-sub"></div>
     <ol id="ranking-list"></ol>
@@ -184,6 +174,15 @@
     <p class="note" data-i18n="resume.note"></p>
     <button class="btn primary" id="btn-resume-yes" data-i18n="resume.continue"></button>
     <button class="btn ghost" id="btn-resume-no" data-i18n="resume.discard"></button>
+  </div>
+</div>
+
+<div id="round-clear" hidden>
+  <div class="rc-inner">
+    <div class="rc-title" id="rc-title"></div>
+    <div class="rc-time" id="rc-time"></div>
+    <div class="rc-total" id="rc-total"></div>
+    <div class="rc-next" id="rc-next"></div>
   </div>
 </div>
 

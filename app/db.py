@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   difficulty TEXT NOT NULL,
   min_time_ms INTEGER NOT NULL,
   started_at REAL NOT NULL,
-  used INTEGER NOT NULL DEFAULT 0
+  used INTEGER NOT NULL DEFAULT 0,
+  round INTEGER NOT NULL DEFAULT 1   -- 3라운드 판: 지금까지 발급한 라운드 수
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
@@ -31,7 +32,8 @@ CREATE TABLE IF NOT EXISTS runs (
   explored REAL NOT NULL,
   path_preview TEXT,
   lang TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  splits TEXT                 -- 라운드별 기록 JSON [ms, ms, ms]
 );
 CREATE INDEX IF NOT EXISTS idx_runs_board_time ON runs(board, time_ms);
 CREATE INDEX IF NOT EXISTS idx_runs_player ON runs(player_id, board);
@@ -72,7 +74,18 @@ def init_db(path):
         os.makedirs(d, exist_ok=True)
     conn = connect(path)
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.close()
+
+
+def _migrate(conn):
+    """이전 버전 DB에 새 컬럼 추가."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    if "round" not in cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN round INTEGER NOT NULL DEFAULT 1")
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(runs)")}
+    if "splits" not in cols:
+        conn.execute("ALTER TABLE runs ADD COLUMN splits TEXT")
 
 
 def init_app(app):

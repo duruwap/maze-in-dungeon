@@ -1,6 +1,7 @@
 """기록 제출과 검증."""
 import base64
 import binascii
+import json
 import secrets
 import time
 
@@ -14,7 +15,7 @@ from .player import current_player
 
 LANGS = ("ko", "en", "zh", "ja")
 MAX_TIME_MS = 6 * 60 * 60 * 1000
-MAX_PREVIEW = 4096
+MAX_PREVIEW = 8192      # 라운드별 비트맵 3개를 '|' 로 연결
 CLOCK_SLACK_MS = 2000
 
 
@@ -46,7 +47,15 @@ def submit_run():
         if preview is not None:
             if not isinstance(preview, str) or len(preview) > MAX_PREVIEW:
                 raise ValueError
-            base64.b64decode(preview, validate=True)
+            for part in preview.split("|"):
+                base64.b64decode(part, validate=True)
+        splits = data.get("splits")
+        if splits is not None:
+            if not isinstance(splits, list) or len(splits) != 3:
+                raise ValueError
+            splits = [_int(v, 1, MAX_TIME_MS) for v in splits]
+            if abs(sum(splits) - time_ms) > 50:
+                raise ValueError
         lang = data.get("lang", "en")
         if lang not in LANGS:
             lang = "en"
@@ -70,6 +79,8 @@ def submit_run():
         return error("invalid_token")
     if sess["used"]:
         return error("token_used")
+    if sess["round"] != 3:
+        return error("incomplete_run")      # 3라운드를 모두 받은 판만 인정
     # 2) 서버 경과 시간보다 길 수 없다
     if time_ms > (now - sess["started_at"]) * 1000 + CLOCK_SLACK_MS:
         return error("time_exceeds_server")
@@ -87,9 +98,9 @@ def submit_run():
     run_id = secrets.token_urlsafe(9)
     db.execute(
         "INSERT INTO runs (id, player_id, board, difficulty, time_ms, torches, teleports, explored, "
-        "path_preview, lang, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (run_id, pid, board, sess["difficulty"], time_ms, torches, teleports, float(explored),
-         preview, lang, utc_iso()))
+        "path_preview, lang, created_at, splits) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (run_id, pid, board, "all", time_ms, torches, teleports, float(explored),
+         preview, lang, utc_iso(), json.dumps(splits) if splits else None))
     db.execute("COMMIT")
     r = player_rank(db, board, pid)
     return jsonify({
@@ -107,6 +118,6 @@ def player_runs(pid):
     if not UUID_RE.match(pid):
         return error("bad_player")
     rows = get_db().execute(
-        "SELECT id, board, difficulty, time_ms, torches, teleports, explored, created_at "
+        "SELECT id, board, difficulty, time_ms, torches, teleports, explored, created_at, splits "
         "FROM runs WHERE player_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 20", (pid,)).fetchall()
     return jsonify({"runs": [dict(r) for r in rows]})

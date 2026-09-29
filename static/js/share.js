@@ -28,10 +28,9 @@ export function shareTexts(r) {
   const rankText = r.showPercent
     ? t('top_percent', { percent: r.topPercent })
     : t('result.rank_of', { rank: r.rank, total: r.total });
-  const diff = r.mode === 'daily' ? t('share.daily_label') : t(`difficulty.${r.difficulty}`);
   return {
     title: t('share.title', { time: formatTime(r.timeMs) }),
-    desc: r.rank ? t('share.desc', { rank_text: rankText, torches: r.torches, difficulty: diff }) : t('share.page_desc'),
+    desc: r.rank ? t('share.desc', { rank_text: rankText, torches: r.torches }) : t('share.page_desc'),
   };
 }
 

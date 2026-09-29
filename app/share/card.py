@@ -164,10 +164,10 @@ def decode_preview(b64, size):
     return out
 
 
-def draw_path(img, cells, size, box):
+def draw_path(img, cells, size, box, pad=14):
     x0, y0, bw = box
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([x0 - 14, y0 - 14, x0 + bw + 14, y0 + bw + 14], radius=16,
+    d.rounded_rectangle([x0 - pad, y0 - pad, x0 + bw + pad, y0 + bw + pad], radius=12,
                         fill=(5, 6, 12, 235), outline=(42, 49, 80, 255), width=3)
     if cells is None:
         return
@@ -194,6 +194,8 @@ def text(d, xy, s, size, lang, fill, anchor="la", stroke=0):
     parts = runs(s, size)
     if anchor == "mt":
         x -= text_width(d, s, size) / 2
+    elif anchor == "rt":
+        x -= text_width(d, s, size)
     base = y + font(size, lang).getmetrics()[0]   # 첫 글꼴의 ascent 기준 공통 기준선
     for f, part in parts:
         sw, sf = stroke, (20, 10, 4, 255)
@@ -210,32 +212,46 @@ def fit_size(d, s, lang, size, max_w):
 
 
 def render_run_card(run, rank, lang):
+    """3라운드 합계 기록 카드: 왼쪽 기록, 오른쪽 라운드별 탐험 경로 미니맵 3개."""
+    import json
     img = background().copy()
     d = ImageDraw.Draw(img)
-    size = SIZES.get(run["difficulty"], 41)
-    draw_path(img, decode_preview(run["path_preview"], size), size, (86, 115, 400))
     logo = sprite_logo(3)
-    img.alpha_composite(logo, (590, 58))
+    img.alpha_composite(logo, (66, 40))
     title = t(lang, "title")
-    text(d, (700, 70), title, fit_size(d, title, lang, 44, 440), lang, (255, 224, 138, 255))
-    diff = t(lang, "share.daily_label") if run["board"].startswith("daily:") else t(lang, f"difficulty.{run['difficulty']}")
-    if run["board"].startswith("daily:"):
-        diff += " " + run["board"][6:]
-    text(d, (700, 128), diff, 26, lang, (154, 160, 189, 255))
-    text(d, (596, 205), t(lang, "share.card_escaped"), 34, lang, (72, 224, 208, 255))
-    text(d, (590, 250), format_time(run["time_ms"]), 132, "en", (255, 246, 208, 255), stroke=0)
+    text(d, (176, 52), title, fit_size(d, title, lang, 44, 420), lang, (255, 224, 138, 255))
+    sub = t(lang, "share.card_rounds") + ("  ·  " + run["board"].split(":", 1)[1] if ":" in run["board"] else "")
+    text(d, (176, 110), sub, 24, lang, (154, 160, 189, 255))
+    text(d, (76, 185), t(lang, "share.card_escaped"), 34, lang, (72, 224, 208, 255))
+    text(d, (70, 228), format_time(run["time_ms"]), 132, "en", (255, 246, 208, 255))
     if rank["show_percent"]:
         big = t(lang, "top_percent", percent=rank["top_percent"])
         small = t(lang, "result.rank_of", rank=rank["rank"], total=rank["total"])
     else:
         big = t(lang, "result.rank_of", rank=rank["rank"], total=rank["total"])
         small = ""
-    text(d, (596, 425), big, fit_size(d, big, lang, 54, 560), lang, (255, 179, 71, 255))
+    text(d, (76, 402), big, fit_size(d, big, lang, 54, 560), lang, (255, 179, 71, 255))
     if small:
-        text(d, (600, 492), small, 26, lang, (154, 160, 189, 255))
+        text(d, (80, 470), small, 26, lang, (154, 160, 189, 255))
     stats = (f"{t(lang, 'torch')} {run['torches']}  ·  {t(lang, 'teleport')} {run['teleports']}  ·  "
              f"{t(lang, 'result.explored')} {round(run['explored'] * 100)}%")
-    text(d, (600, 540), stats, fit_size(d, stats, lang, 26, 560), lang, (232, 230, 240, 255))
+    text(d, (80, 540), stats, fit_size(d, stats, lang, 26, 560), lang, (232, 230, 240, 255))
+
+    previews = (run.get("path_preview") or "").split("|")
+    try:
+        splits = json.loads(run.get("splits") or "null") or []
+    except ValueError:
+        splits = []
+    for i, diff in enumerate(("easy", "normal", "hard")):
+        y0 = 48 + i * 190
+        size = SIZES[diff]
+        cells = decode_preview(previews[i], size) if i < len(previews) else None
+        draw_path(img, cells, size, (1008, y0, 146), pad=8)
+        label = t(lang, "result.round", n=i + 1)
+        text(d, (990, y0 + 30), label, 26, lang, (154, 160, 189, 255), anchor="rt")
+        text(d, (990, y0 + 64), t(lang, f"difficulty.{diff}"), 24, lang, (72, 224, 208, 255), anchor="rt")
+        if i < len(splits):
+            text(d, (990, y0 + 98), format_time(splits[i]), 32, "en", (255, 224, 138, 255), anchor="rt")
     return img.convert("RGB")
 
 
@@ -248,8 +264,8 @@ def render_default_card(lang):
     text(d, (W // 2, 360), title, fit_size(d, title, lang, 96, 1000), lang, (255, 224, 138, 255), anchor="mt")
     sub = t(lang, "subtitle")
     text(d, (W // 2, 490), sub, fit_size(d, sub, lang, 36, 1000), lang, (232, 230, 240, 255), anchor="mt")
-    daily = t(lang, "daily")
-    text(d, (W // 2, 555), daily, 30, lang, (72, 224, 208, 255), anchor="mt")
+    desc = t(lang, "title.start_desc")
+    text(d, (W // 2, 555), desc, fit_size(d, desc, lang, 30, 1000), lang, (72, 224, 208, 255), anchor="mt")
     return img.convert("RGB")
 
 
