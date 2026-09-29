@@ -1,6 +1,5 @@
 """결과 카드 이미지(1200x630) 생성: 어두운 던전 배경 + 탐험 경로 미니맵 + 기록."""
 import base64
-import glob
 import math
 import os
 from functools import lru_cache
@@ -14,45 +13,75 @@ W, H = 1200, 630
 ASSETS = os.path.join(BASE_DIR, "static", "assets")
 SIZES = {"easy": 25, "normal": 41, "hard": 61}
 
-FONT_CANDIDATES = [
-    os.path.join(BASE_DIR, "static", "fonts", "*.ttc"),
-    os.path.join(BASE_DIR, "static", "fonts", "*.otf"),
-    os.path.join(BASE_DIR, "static", "fonts", "*.ttf"),
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+# 기본은 Pretendard, 일본어 한자는 Pretendard JP, 둘 다 없는 글자(중국어 간체 일부)만 대체 글꼴
+PRIMARY_FONTS = [os.path.join(FONT_DIR, "Pretendard-Bold.otf"), os.path.join(FONT_DIR, "PretendardJP-Bold.otf")]
+FALLBACK_CANDIDATES = [
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
     "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
     "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Bold.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
 ]
-# Noto Sans CJK TTC 안의 언어별 face 순서: JP, KR, SC, TC, HK
-TTC_INDEX = {"ja": 0, "ko": 1, "zh": 2, "en": 1}
 
 
 @lru_cache(maxsize=1)
-def font_path():
+def font_chain():
+    """[(경로, face index, 지원 코드포인트 집합)]"""
+    from fontTools.ttLib import TTCollection, TTFont
+    paths = [p for p in PRIMARY_FONTS if os.path.exists(p)]
     env = os.environ.get("FONT_PATH")
-    if env and os.path.exists(env):
-        return env
-    for pat in FONT_CANDIDATES:
-        hits = sorted(glob.glob(pat))
-        if hits:
-            return hits[0]
-    return None
+    fb = [env] if env and os.path.exists(env) else []
+    fb += [p for p in FALLBACK_CANDIDATES if os.path.exists(p)]
+    if fb:
+        paths.append(fb[0])
+    chain = []
+    for path in paths:
+        index = 0
+        if path.lower().endswith(".ttc"):
+            if "NotoSansCJK" in os.path.basename(path):
+                index = 2   # SC
+            cmap = set(TTCollection(path).fonts[index].getBestCmap())
+        else:
+            cmap = set(TTFont(path).getBestCmap())
+        chain.append((path, index, cmap))
+    return chain
 
 
-@lru_cache(maxsize=64)
+def font_path():
+    chain = font_chain()
+    return chain[0][0] if chain else None
+
+
+@lru_cache(maxsize=128)
+def _font(i, size):
+    path, index, _ = font_chain()[i]
+    return ImageFont.truetype(path, size, index=index)
+
+
 def font(size, lang="en"):
-    path = font_path()
-    if not path:
-        return ImageFont.load_default(size)
-    index = TTC_INDEX.get(lang, 0) if "NotoSansCJK" in os.path.basename(path) else 0
-    try:
-        return ImageFont.truetype(path, size, index=index)
-    except OSError:
-        return ImageFont.truetype(path, size)
+    return _font(0, size) if font_chain() else ImageFont.load_default(size)
+
+
+def runs(s, size):
+    """글자마다 글리프가 있는 첫 글꼴을 골라 (글꼴, 문자열) 구간으로 나눈다."""
+    chain = font_chain()
+    if not chain:
+        return [(ImageFont.load_default(size), s)]
+    out = []
+    for ch in s:
+        idx = 0
+        for i, (_, _, cmap) in enumerate(chain):
+            if ord(ch) in cmap or ch.isspace():
+                idx = i
+                break
+        f = _font(idx, size)
+        if out and out[-1][0] is f:
+            out[-1] = (f, out[-1][1] + ch)
+        else:
+            out.append((f, ch))
+    return out
 
 
 @lru_cache(maxsize=1)
@@ -155,13 +184,27 @@ def draw_path(img, cells, size, box):
                 fill=(72, 224, 208, 255))
 
 
+def text_width(d, s, size):
+    return sum(d.textlength(part, font=f) for f, part in runs(s, size))
+
+
 def text(d, xy, s, size, lang, fill, anchor="la", stroke=0):
-    d.text(xy, s, font=font(size, lang), fill=fill, anchor=anchor,
-           stroke_width=stroke, stroke_fill=(20, 10, 4, 255))
+    """글꼴 대체를 지원하는 텍스트. anchor: 'la'(왼쪽 위) 또는 'mt'(가운데 위)."""
+    x, y = xy
+    parts = runs(s, size)
+    if anchor == "mt":
+        x -= text_width(d, s, size) / 2
+    base = y + font(size, lang).getmetrics()[0]   # 첫 글꼴의 ascent 기준 공통 기준선
+    for f, part in parts:
+        sw, sf = stroke, (20, 10, 4, 255)
+        if not sw and "wqy" in getattr(f, "path", ""):
+            sw, sf = max(1, size // 30), fill   # 굵은 글꼴이 없는 대체 글꼴은 획을 두껍게 보정
+        d.text((x, base), part, font=f, fill=fill, anchor="ls", stroke_width=sw, stroke_fill=sf)
+        x += d.textlength(part, font=f)
 
 
 def fit_size(d, s, lang, size, max_w):
-    while size > 16 and d.textlength(s, font=font(size, lang)) > max_w:
+    while size > 16 and text_width(d, s, size) > max_w:
         size -= 2
     return size
 

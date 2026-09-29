@@ -16,8 +16,9 @@
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --font: "Noto Sans KR", "Noto Sans CJK KR", "Noto Sans SC", "Noto Sans JP", "Apple SD Gothic Neo",
-    "Malgun Gothic", "PingFang SC", "Hiragino Sans", "Microsoft YaHei", system-ui, sans-serif;
+  --font: "Pretendard Variable", Pretendard, "Pretendard JP Variable", "Pretendard JP", -apple-system,
+    BlinkMacSystemFont, system-ui, "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei",
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }

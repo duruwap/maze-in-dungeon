@@ -3,6 +3,7 @@
 명세에 없거나 명세와 다르게 정한 것을 한 줄씩 기록한다.
 
 ## 서버 / 맵 생성
+- (변경) 오늘의 던전도 "모두 같은 맵"이 아니라 시작할 때마다 새 맵을 생성한다. 시드 = `daily-YYYY-MM-DD-<무작위>`, 난이도 normal 고정, 랭킹 보드만 `daily:YYYY-MM-DD`로 날짜별. 시작 시 "던전 생성 중…"을 표시한다.
 - 기본 포트는 15003 (로컬 `python wsgi.py`, gunicorn, nginx 예시 모두). `PORT` 환경변수로 변경 가능.
 - 맵 크기 25/41/61의 중앙(12/20/30)은 짝수라 홀수 격자에 맞지 않는다. 명세 예시 좌표(탈출 방 18~22, 문 (20,23), 출발 (20,25))를 그대로 따르고, 중앙 블록(탈출 방+광장)만 격자 정렬 예외로 둔다. 미로는 이 블록을 두꺼운 벽으로 감싸 돌아간다.
 - 출발 광장은 서·동·남 세 방향으로 3칸짜리 고정 통로를 뚫어 미로와 연결한다 (허브 역할, 두꺼운 벽 관통).
@@ -45,7 +46,8 @@
 
 ## 공유 / 운영
 - Kakao SDK 2.7.4의 URL·SRI 해시는 이 개발 환경에서 외부망이 막혀 공식 문서로 재확인하지 못했다. 알려진 값을 기본으로 넣고, `KAKAO_SDK_URL`/`KAKAO_SDK_INTEGRITY` 환경변수로 교체할 수 있게 했다(README에 확인 절차 안내). 해시가 틀리면 카카오 버튼만 숨고 나머지 공유는 정상 동작한다.
-- 결과 카드 폰트: Noto Sans CJK를 저장소에 넣지 않는다(용량). `static/fonts/` → 시스템 Noto Sans CJK(`fonts-noto-cjk`) → WenQuanYi Zen Hei 순으로 찾는다. 이 개발 환경에는 Noto CJK가 없어 WenQuanYi로 4개 언어 렌더링을 확인했다.
+- (변경) 전체 글꼴은 Pretendard. 웹은 Pretendard Variable + Pretendard JP Variable 동적 서브셋(woff2, unicode-range)을 `static/fonts/`에 자체 호스팅한다(외부 CDN 금지 규칙 유지, 필요한 조각만 로드되므로 첫 로드 용량에 큰 영향 없음). Pretendard에는 중국어 간체 일부(71자)가 없어 그 글자만 시스템 CJK 글꼴로 대체된다.
+- 결과 카드(Pillow)는 `app/share/fonts/`의 Pretendard Bold / Pretendard JP Bold를 쓰고, 글자별로 글리프가 없으면 다음 글꼴(FONT_PATH → 시스템 Noto CJK → WenQuanYi)로 넘어가는 대체 렌더링을 한다.
 - 카드의 순위/상위 %는 처음 렌더링하는 시점 기준으로 계산하고 파일 캐시한다(보통 공유 직후라 제출 시점과 같다).
 - 공유 링크 `/share/<run_id>`는 OG 태그가 있는 랜딩 페이지이며, 사람이 열면 카드 이미지와 "나도 도전하기" 버튼을 보여준다.
 - gunicorn은 127.0.0.1:15003에 바인드하고 nginx가 HTTPS를 종료한다.

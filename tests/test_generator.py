@@ -88,10 +88,11 @@ def test_maze_api(client):
     assert r.status_code == 200
     j = r.get_json()
     assert j["difficulty"] == "normal" and j["seed"].startswith("daily-")
-    assert j["board"] == "daily:" + j["seed"][6:]
+    assert j["board"] == "daily:" + j["seed"][6:16]
     assert "min_time_ms" not in j and j["token"]
     r2 = client.get("/api/maze?mode=daily", headers={"X-Player-Id": p["id"]}).get_json()
-    assert r2["tiles"] == j["tiles"] and r2["token"] != j["token"]
+    # 오늘의 던전도 판마다 새 맵 (보드는 같은 날짜)
+    assert r2["seed"] != j["seed"] and r2["token"] != j["token"] and r2["board"] == j["board"]
     r = client.get("/api/maze?mode=free&difficulty=hard", headers={"X-Player-Id": p["id"]})
     assert r.get_json()["width"] == 61 and r.get_json()["board"].startswith("free:hard:")
     assert client.get("/api/maze?mode=free&difficulty=xx", headers={"X-Player-Id": p["id"]}).status_code == 400

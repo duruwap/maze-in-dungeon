@@ -8,7 +8,7 @@
   "explorer": "探検家",
   "top_percent": "上位 {percent}%",
   "explorer_name": "探検家 #{n}",
-  "title.daily_desc": "全員が同じマップ · ふつう",
+  "title.daily_desc": "毎日新しいランキング · ふつう",
   "title.free": "フリー探検",
   "title.free_desc": "難易度を選んで新しいマップに挑戦",
   "title.ranking": "ランキング",
@@ -117,5 +117,6 @@
   "share.page_desc": "暗いダンジョン迷宮で松明を灯し、鍵を集めて脱出しよう！",
   "share.card_escaped": "脱出成功",
   "share.card_players": "{n}人中",
-  "share.not_found": "記録が見つかりません"
+  "share.not_found": "記録が見つかりません",
+  "title.generating": "ダンジョン生成中…"
 }

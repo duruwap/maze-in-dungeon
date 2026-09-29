@@ -1,5 +1,6 @@
 Flask>=3.0,<4
 Pillow>=10
+fonttools>=4.40
 gunicorn>=21
 pytest>=8
 playwright>=1.40

@@ -17,6 +17,8 @@
 <meta property="og:url" content="{{ cfg.BASE_URL }}/?lang={{ lang }}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/icon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts/pretendard/pretendardvariable-dynamic-subset.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts/pretendard-jp/pretendardvariable-jp-dynamic-subset.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
 <script>window.__BOOT__ = {{ boot | tojson }};</script>
 {% if cfg.KAKAO_JS_KEY %}
@@ -184,7 +186,7 @@
   </div>
 </div>
 
-<div id="loading" hidden><div class="spinner"></div><span data-i18n="title.loading"></span></div>
+<div id="loading" hidden><div class="spinner"></div><span id="loading-text" data-i18n="title.loading"></span></div>
 <div id="flash-msg"></div>
 
 <script type="module" src="{{ url_for('static', filename='js/main.js') }}?v={{ version }}"></script>

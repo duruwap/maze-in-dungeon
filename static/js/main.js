@@ -45,7 +45,8 @@ function flashMsg(text, ms = 2200) {
   flashMsg.tid = setTimeout(() => el.classList.remove('on'), ms);
 }
 
-function loading(on) {
+function loading(on, key = 'title.loading') {
+  $('loading-text').textContent = t(key);
   $('loading').hidden = !on;
 }
 
@@ -71,7 +72,7 @@ function closeModal(id) {
 
 // ---------------- 게임 시작/종료 ----------------
 async function startGame(mode, difficulty) {
-  loading(true);
+  loading(true, 'title.generating');
   try {
     await api.ensurePlayer();
     const maze = await api.getMaze(mode, difficulty);

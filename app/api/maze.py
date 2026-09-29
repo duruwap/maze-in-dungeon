@@ -25,7 +25,8 @@ def maze():
         return error("unknown_player", 401)
     if mode == "daily":
         difficulty = "normal"
-        seed = f"daily-{daily_date()}"
+        # 모두 같은 맵이 아니라, 판마다 새 맵을 생성한다 (랭킹 보드만 날짜별)
+        seed = f"daily-{daily_date()}-{secrets.token_hex(6)}"
         board = daily_board()
     else:
         difficulty = request.args.get("difficulty", "normal")

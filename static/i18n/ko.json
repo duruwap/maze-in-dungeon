@@ -8,7 +8,7 @@
   "explorer": "탐험가",
   "top_percent": "상위 {percent}%",
   "explorer_name": "탐험가 #{n}",
-  "title.daily_desc": "모두가 같은 맵 · 보통",
+  "title.daily_desc": "매일 새로운 랭킹 · 보통",
   "title.free": "자유 탐험",
   "title.free_desc": "난이도를 골라 새 맵에 도전",
   "title.ranking": "랭킹",
@@ -117,5 +117,6 @@
   "share.page_desc": "어둠 속 던전 미로에서 횃불을 밝히고 열쇠를 모아 탈출하세요!",
   "share.card_escaped": "탈출 성공",
   "share.card_players": "{n}명 중",
-  "share.not_found": "기록을 찾을 수 없어요"
+  "share.not_found": "기록을 찾을 수 없어요",
+  "title.generating": "던전 생성 중…"
 }

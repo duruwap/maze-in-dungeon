@@ -17,9 +17,12 @@
 <meta property="og:locale" content="{{ {'ko': 'ko_KR', 'en': 'en_US', 'zh': 'zh_CN', 'ja': 'ja_JP'}[lang] }}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/icon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts/pretendard/pretendardvariable-dynamic-subset.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts/pretendard-jp/pretendardvariable-jp-dynamic-subset.css') }}">
 <style>
   html, body { margin: 0; height: 100%; background: #0b0e1a; color: #e8e6f0;
-    font-family: "Noto Sans KR", "Noto Sans CJK KR", "Apple SD Gothic Neo", "PingFang SC", "Hiragino Sans", system-ui, sans-serif; }
+    font-family: "Pretendard Variable", Pretendard, "Pretendard JP Variable", -apple-system, system-ui,
+      "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
   body { display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
     background: radial-gradient(ellipse at 50% 30%, #1b2140 0%, #0b0e1a 70%); }
   main { width: min(640px, 100%); text-align: center; display: flex; flex-direction: column; gap: 16px; }

@@ -1,12 +1,15 @@
 # 미로 인 던전 (Maze in Dungeon)
 
-어두운 던전 미로에서 발밑만 보이는 채로 출발해, 횃불을 켜고 텔레포트를 열며 열쇠를 모두 모은 뒤
+시작할 때마다 새로 생성되는 어두운 던전 미로에서 발밑만 보이는 채로 출발해, 횃불을 켜고 텔레포트를 열며 열쇠를 모두 모은 뒤
 중앙 탈출 방의 문을 열고 나가는 시간을 겨루는 1인용 웹 게임입니다.
 
-- 매일 모두가 같은 맵을 하는 **오늘의 던전**(보통 난이도, 한국 시간 자정 초기화)
+- 시작할 때마다 새 맵을 생성하는 **오늘의 던전**(보통 난이도, 날짜별 랭킹 — 한국 시간 자정 초기화)
 - 난이도별 **자유 탐험**(쉬움/보통/어려움, 주간 랭킹 — 월요일 KST 초기화)
 - 로그인·닉네임 없이 `탐험가 #번호`로 순위·상위 %를 보여주고 카카오톡/링크로 공유
 - 한국어 · English · 简体中文 · 日本語
+
+글꼴: 화면·공유 페이지·결과 카드 모두 [Pretendard](https://github.com/orioncactus/pretendard)(OFL, `static/fonts/`에 자체 호스팅,
+동적 서브셋이라 필요한 글자 조각만 내려받음). 일본어 한자는 Pretendard JP, Pretendard에 없는 중국어 간체 글자는 시스템 CJK 글꼴로 대체.
 
 기술: Python 3.11 + Flask 3 + SQLite(WAL) / Vanilla JS(ES Modules) + Canvas 2D / Web Audio 합성 사운드 /
 Pillow로 생성한 픽셀 아트. 빌드 도구 없음.
@@ -36,7 +39,7 @@ python wsgi.py                      # http://localhost:15003
 | `DB_PATH` | `instance/maze.db` | SQLite 파일 경로 |
 | `PORT` | `15003` | `python wsgi.py` 개발 서버 포트 |
 | `OG_CACHE_DIR` | `instance/og_cache` | 결과 카드 PNG 파일 캐시 |
-| `FONT_PATH` | (자동 탐색) | 결과 카드용 CJK 폰트. `static/fonts/` → 시스템 Noto Sans CJK → WenQuanYi 순으로 찾음 |
+| `FONT_PATH` | (없음) | 결과 카드 중국어 간체용 대체 폰트. 없으면 시스템 Noto Sans CJK → WenQuanYi 순으로 찾음 (한국어·영어·일본어는 Pretendard) |
 | `KAKAO_SDK_URL`, `KAKAO_SDK_INTEGRITY` | 2.7.4 | Kakao SDK 버전/SRI 해시 교체용 |
 
 `.env.example`을 참고하세요.
@@ -73,7 +76,7 @@ sudo git clone <repo> /srv/maze-in-dungeon && sudo chown -R maze:maze /srv/maze-
 cd /srv/maze-in-dungeon
 sudo -u maze python3 -m venv .venv
 sudo -u maze .venv/bin/pip install -r requirements.txt
-sudo apt install -y fonts-noto-cjk          # 결과 카드 4개 언어 렌더링용 (권장)
+sudo apt install -y fonts-noto-cjk          # 결과 카드의 중국어 간체 대체 글꼴 (권장)
 
 # 2) 환경변수
 sudo -u maze cp .env.example .env && sudo -u maze nano .env   # SECRET_KEY, BASE_URL, KAKAO_JS_KEY

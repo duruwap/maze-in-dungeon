@@ -8,7 +8,7 @@
   "explorer": "Explorer",
   "top_percent": "Top {percent}%",
   "explorer_name": "Explorer #{n}",
-  "title.daily_desc": "Same map for everyone · Normal",
+  "title.daily_desc": "Fresh ranking every day · Normal",
   "title.free": "Free Exploration",
   "title.free_desc": "Pick a difficulty and try a new map",
   "title.ranking": "Ranking",
@@ -117,5 +117,6 @@
   "share.page_desc": "Light torches, collect keys and escape the dark dungeon maze!",
   "share.card_escaped": "ESCAPED",
   "share.card_players": "of {n} players",
-  "share.not_found": "Record not found"
+  "share.not_found": "Record not found",
+  "title.generating": "Generating dungeon…"
 }

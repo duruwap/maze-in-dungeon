@@ -8,7 +8,7 @@
   "explorer": "探险家",
   "top_percent": "前 {percent}%",
   "explorer_name": "探险家 #{n}",
-  "title.daily_desc": "所有人同一张地图 · 普通",
+  "title.daily_desc": "每日全新排行 · 普通",
   "title.free": "自由探索",
   "title.free_desc": "选择难度，挑战新地图",
   "title.ranking": "排行榜",
@@ -117,5 +117,6 @@
   "share.page_desc": "在黑暗的地牢迷宫中点亮火把、收集钥匙并逃出生天！",
   "share.card_escaped": "逃脱成功",
   "share.card_players": "共 {n} 人",
-  "share.not_found": "找不到该记录"
+  "share.not_found": "找不到该记录",
+  "title.generating": "正在生成地牢…"
 }
