@@ -47,7 +47,7 @@ git clone <repo> maze-in-dungeon && cd maze-in-dungeon
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | `SECRET_KEY` | `dev-secret-change-me` | 운영에서는 반드시 긴 무작위 문자열 |
-| `BASE_URL` | `http://localhost:15003` | 공유 링크·OG 이미지 절대 주소 (운영: `https://maze.duruwap.com`) |
+| `BASE_URL` | (자동) | 공유 링크·OG 이미지 공개 주소. 비우면 nginx가 넘기는 Host·https 정보로 자동 판별 (운영: `https://maze.duruwap.com`) |
 | `KAKAO_JS_KEY` | (없음) | 카카오 JavaScript 키. 없으면 카카오 버튼만 숨고 나머지는 정상 동작 |
 | `DATA_DIR` / `DB_PATH` / `OG_CACHE_DIR` | `/scsdat/app/maze-in-dungeon` 하위 | 데이터 경로 |
 | `LOG_DIR` | `/scslog/app/maze-in-dungeon` | 일별 로그 디렉토리 |
@@ -142,6 +142,17 @@ SQLite 온라인 백업 API를 쓰므로 서비스 중에도 안전합니다. �
    `KAKAO_SDK_URL`/`KAKAO_SDK_INTEGRITY`를 바꾸세요. 해시가 틀리면 브라우저가 SDK를 막고 카카오 버튼만 숨겨집니다.
 
 카카오톡이 없는 환경에서는 Web Share API(지원 브라우저)와 링크 복사가 동작합니다.
+
+### 공유 이미지가 안 보일 때
+
+- 결과 화면이 뜨면 브라우저가 결과 카드 PNG를 `Kakao.Share.uploadImage`로 **카카오 서버에 미리 올리고**, 공유 메시지에는
+  카카오 CDN 이미지 주소를 넣습니다. 그래서 카카오가 우리 서버에서 이미지를 가져갈 필요가 없습니다.
+  업로드가 실패하면 우리 서버의 `https://<도메인>/og/<run_id>.png` 주소로 대신 보냅니다.
+- 그 대신 쓰는 서버 주소는 `BASE_URL`(비우면 nginx가 넘기는 Host/X-Forwarded-Proto로 자동 판별)입니다. 반드시 외부에서 열리는
+  **https 주소**여야 합니다. `BASE_URL`이 `http://localhost...`로 남아 있으면 카카오가 이미지를 가져가지 못합니다.
+- 확인: 휴대폰 브라우저에서 `https://maze.duruwap.com/og/default.png?lang=ko`가 열리는지,
+  [카카오 공유 디버거](https://developers.kakao.com/tool/debugger/sharing)에서 공유 페이지 주소를 넣고 **캐시 초기화** 후 이미지가 보이는지 확인하세요
+  (카카오는 한 번 실패한 이미지를 한동안 캐시합니다).
 
 ## 5. 구조
 

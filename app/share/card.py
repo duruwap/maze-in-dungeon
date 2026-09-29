@@ -100,9 +100,43 @@ def sprite(name, scale):
     return im.resize((w * scale, h * scale), Image.NEAREST)
 
 
+_BG_CACHE = {"dir": None}
+
+
+def warm_up(cache_dir):
+    """워커 시작 시 배경·글꼴·스프라이트를 미리 준비한다 (백그라운드 스레드)."""
+    import threading
+    _BG_CACHE["dir"] = cache_dir
+
+    def work():
+        try:
+            background()
+            font_chain()
+            for size in (24, 26, 32, 34, 44, 54, 132):
+                _font(0, size)
+        except Exception:   # 워밍업 실패는 실제 요청 때 다시 시도
+            import logging
+            logging.getLogger(__name__).exception("card warm-up failed")
+    threading.Thread(target=work, daemon=True).start()
+
+
 @lru_cache(maxsize=1)
 def background():
-    """던전 벽/바닥 스프라이트로 만든 어두운 배경 (한 번만 생성)."""
+    """던전 배경 (프로세스당 1회, 디스크 캐시를 워커끼리 공유)."""
+    d = _BG_CACHE["dir"]
+    path = os.path.join(d, f"_bg_{os.path.getmtime(os.path.join(ASSETS, 'tiles.png')):.0f}.png") if d else None
+    if path and os.path.exists(path):
+        return Image.open(path).convert("RGBA")
+    bg = _render_background()
+    if path:
+        os.makedirs(d, exist_ok=True)
+        tmp = path + f".{os.getpid()}.tmp"
+        bg.save(tmp, "PNG")
+        os.replace(tmp, path)
+    return bg
+
+
+def _render_background():
     bg = Image.new("RGBA", (W, H), (11, 14, 26, 255))
     sc = 5
     ts = 16 * sc

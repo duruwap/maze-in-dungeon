@@ -11,7 +11,7 @@ import { Sprites } from './sprites.js';
 import * as api from './api.js';
 import { load, save, remove } from './storage.js';
 import { t, setLang, detectLang, getLang, formatTime, onLangChange, LANGS } from './i18n.js';
-import { shareKakao, webShare, copyLink, kakaoAvailable, initKakao } from './share.js';
+import { shareKakao, webShare, copyLink, kakaoAvailable, initKakao, prepareKakaoImage } from './share.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_MAX_AGE = 24 * 3600 * 1000;
@@ -437,6 +437,7 @@ function drawResultPath(snaps) {
 
 function updateShareButtons() {
   const r = S.result;
+  if (r && r.runId) prepareKakaoImage(r);   // 카카오 공유 이미지 미리 업로드
   const ko = getLang() === 'ko';
   const kakao = $('btn-kakao');
   kakao.hidden = !kakaoAvailable() || !r || !r.runId;

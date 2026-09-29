@@ -14,7 +14,8 @@ LOG_DIR = os.environ.get("LOG_DIR") or (_SCSLOG if os.path.isdir("/scslog/app") 
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-    BASE_URL = os.environ.get("BASE_URL", "http://localhost:15003").rstrip("/")
+    # 공유 링크·OG 이미지의 공개 주소. 비어 있으면 요청 주소(nginx 의 Host/X-Forwarded-Proto)로 자동 판별
+    BASE_URL = os.environ.get("BASE_URL", "").rstrip("/")
     KAKAO_JS_KEY = os.environ.get("KAKAO_JS_KEY", "")
     # Kakao JS SDK: 버전/무결성 해시는 공식 문서에서 확인 후 환경변수로 교체 가능
     KAKAO_SDK_URL = os.environ.get(

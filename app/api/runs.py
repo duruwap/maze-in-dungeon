@@ -102,6 +102,8 @@ def submit_run():
         (run_id, pid, board, "all", time_ms, torches, teleports, float(explored),
          preview, lang, utc_iso(), json.dumps(splits) if splits else None))
     db.execute("COMMIT")
+    from ..share import prerender_run_card
+    prerender_run_card(run_id, lang)     # 공유 카드 미리 생성 (카카오 이미지 수집 지연 방지)
     r = player_rank(db, board, pid)
     return jsonify({
         "run_id": run_id, "board": board,

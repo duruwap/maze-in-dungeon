@@ -28,6 +28,15 @@ def js_modules():
     return sorted(f for f in os.listdir(os.path.join(STATIC_DIR, "js")) if f.endswith(".js"))
 
 
+def public_base():
+    """카카오 등 외부에서 접근할 공개 주소. 설정값이 비었거나 로컬 주소면 현재 요청 주소를 쓴다."""
+    from flask import current_app
+    b = current_app.config.get("BASE_URL") or ""
+    if not b or "://localhost" in b or "://127.0.0.1" in b:
+        b = request.host_url
+    return b.rstrip("/")
+
+
 def create_app(test_config=None):
     app = Flask(__name__, static_folder="../static", static_url_path="/static",
                 template_folder="templates")
@@ -37,6 +46,10 @@ def create_app(test_config=None):
     os.makedirs(app.config["OG_CACHE_DIR"], exist_ok=True)
     from .logutil import configure
     configure(None if app.config.get("TESTING") else app.config.get("LOG_DIR"))
+
+    # nginx 뒤에서 https/도메인을 올바르게 인식 (X-Forwarded-Proto, X-Forwarded-Host)
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     from . import db
     db.init_app(app)
@@ -52,6 +65,9 @@ def create_app(test_config=None):
     from .i18n import pick_lang, texts
 
     version = asset_version()
+    if not app.config.get("TESTING"):
+        from .share.card import warm_up
+        warm_up(app.config["OG_CACHE_DIR"])   # 첫 카드 생성 지연(수 초) 제거 — 카카오 이미지 수집 타임아웃 방지
     modules = js_modules()
 
     @app.after_request
@@ -64,10 +80,10 @@ def create_app(test_config=None):
     @app.get("/")
     def index():
         lang = pick_lang(request)
-        boot = {"kakaoKey": app.config["KAKAO_JS_KEY"], "baseUrl": app.config["BASE_URL"],
-                "version": version}
+        base = public_base()
+        boot = {"kakaoKey": app.config["KAKAO_JS_KEY"], "baseUrl": base, "version": version}
         return render_template("index.html", lang=lang, cfg=app.config, texts=texts(lang),
-                               boot=boot, version=version, modules=modules)
+                               boot=boot, version=version, modules=modules, base=base)
 
     @app.errorhandler(404)
     def not_found(_e):

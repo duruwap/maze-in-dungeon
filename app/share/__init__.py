@@ -48,7 +48,8 @@ def _cached_png(name, builder):
 def share_page(run_id):
     lang = pick_lang(request)
     run = _run(run_id)
-    base = current_app.config["BASE_URL"]
+    from .. import public_base
+    base = public_base()
     if run is None:
         return render_template("share.html", lang=lang, html_lang=HTML_LANG[lang], texts=texts(lang),
                                found=False, base=base, title=t(lang, "title"),
@@ -84,3 +85,30 @@ def og_card(run_id):
         abort(404)
     rank = time_rank(get_db(), run["board"], run["time_ms"])
     return _cached_png(f"{run_id}_{lang}.png", lambda: render_run_card(dict(run), rank, lang))
+
+
+def prerender_run_card(run_id, lang):
+    """기록 제출 직후 결과 카드를 백그라운드에서 미리 만들어 파일 캐시에 둔다."""
+    import threading
+    app = current_app._get_current_object()
+    if app.config.get("TESTING"):
+        return
+
+    def work():
+        from .card import render_run_card
+        with app.app_context():
+            try:
+                run = _run(run_id)
+                if run is None:
+                    return
+                rank = time_rank(get_db(), run["board"], run["time_ms"])
+                cache = app.config["OG_CACHE_DIR"]
+                path = os.path.join(cache, f"{run_id}_{lang}.png")
+                if not os.path.exists(path):
+                    fd, tmp = tempfile.mkstemp(dir=cache, suffix=".png")
+                    os.close(fd)
+                    render_run_card(dict(run), rank, lang).save(tmp, "PNG", optimize=True)
+                    os.replace(tmp, path)
+            except Exception:
+                app.logger.exception("prerender card failed")
+    threading.Thread(target=work, daemon=True).start()
