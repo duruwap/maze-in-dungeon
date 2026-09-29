@@ -56,8 +56,8 @@ window.__autoplay = function (opts = {}) {
       path = bfs(cur, goal.i) || [];
       path.from = cur;
     }
-    let idx = path.indexOf(cur);
-    const next = path[idx + 1] !== undefined ? path[idx + 1] : path[0];
+    const idx = path.indexOf(cur);
+    const next = idx === -1 ? path[0] : path[idx + 1];
     const tgt = next === undefined ? goal.i : next;
     const tx = (tgt % W) + 0.5; const ty = ((tgt / W) | 0) + 0.5;
     const dx = tx - p.x; const dy = ty - p.y;
