@@ -8,7 +8,7 @@ from .placement import bfs
 MOVE_SPEED = 4.5          # 칸/초
 SPEED_TOLERANCE = 1.1
 INTERACT_REACH = 1.2      # 상호작용 가능 거리(칸)
-DOOR_UNLOCK_MS = 600      # 문에 열쇠를 꽂는 최소 연출 시간
+DOOR_UNLOCK_MS = 0        # 상호작용은 즉시 적용되므로 필수 대기 시간 없음
 
 
 def _flat(maze):

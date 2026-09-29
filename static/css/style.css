@@ -284,13 +284,13 @@ h1, h2 { margin: 0; }
   position: absolute;
   right: calc(22px + var(--sar));
   bottom: calc(26px + var(--sab));
-  width: 76px;
-  height: 76px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.15);
   background: rgba(30, 38, 64, 0.8);
   color: var(--muted);
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 900;
   display: none;
 }
@@ -341,6 +341,15 @@ body.touch #btn-e { display: block; }
   background: rgba(5, 6, 12, 0.88);
 }
 #bigmap { width: 100%; flex: 1; min-height: 0; image-rendering: pixelated; }
+#btn-map-close { position: absolute; top: calc(10px + var(--sat)); left: calc(10px + var(--sal)); pointer-events: auto; }
+/* 터치: 지도 위 어디서든 조이스틱을 쓰고 E 버튼으로 이동 (지도는 표시만) */
+body.touch #mapview { pointer-events: none; }
+body.touch #mapview #btn-map-close { pointer-events: auto; }
+body.mapopen #hud { z-index: 35; }
+body.mapopen #hud #prompt, body.mapopen #hud #hint, body.mapopen #hud #status,
+body.mapopen #hud #keyslots, body.mapopen #hud #timer, body.mapopen #hud #minimap { visibility: hidden; }
+body.mapopen:not(.tpselect) #btn-e { visibility: hidden; }
+body.tpselect #btn-e { background: radial-gradient(circle, #b8fff4, #1f8a8a); color: #05202a; border-color: #b8fff4; }
 .map-head { font-size: 20px; font-weight: 800; color: var(--teal); text-align: center; display: flex; gap: 14px; align-items: baseline; }
 #map-timer { color: var(--torch2); font-variant-numeric: tabular-nums; }
 .map-foot { color: var(--muted); font-size: 14px; text-align: center; }

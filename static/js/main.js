@@ -143,6 +143,8 @@ function updateMapView() {
   const mv = $('mapview');
   if (mv.hidden === !open) return;
   mv.hidden = !open;
+  document.body.classList.toggle('mapopen', open);
+  document.body.classList.toggle('tpselect', open && g.mode === 'tpselect');
   if (open) {
     const touch = document.body.classList.contains('touch');
     if (g.mode === 'map') {
@@ -206,10 +208,8 @@ function processFx(g) {
         audio.play('step');
         particles.burst(e.x, e.y, 'foot', 3, 0.5, 0.35, { up: -0.2 });
         break;
-      case 'torch_start':
-        audio.play('torch_start');
-        break;
       case 'torch_lit':
+        audio.play('torch_start');
         audio.play('torch_lit');
         particles.burst(e.x, e.y - 0.4, 'ember', 18, 1.6, 0.8, { layer: 'over', glow: true, up: -0.8 });
         break;
@@ -220,15 +220,13 @@ function processFx(g) {
         hud.toast(t('toast.key', { color: t(`color.${e.color}`) }));
         audio.setProgress(e.collected, g.totalKeys);
         break;
-      case 'all_keys':
-        setTimeout(() => { if (S.game === g) hud.toast(t('toast.all_keys')); }, 1400);
-        break;
-      case 'tp_charge':
-        audio.play('tp_charge');
-        particles.burst(e.x, e.y, 'teal', 20, 0.8, 1.0, { layer: 'over', glow: true, up: -0.6 });
+      case 'key_inserted':
+        hud.toast(t('toast.key_inserted', { left: e.left }));
         break;
       case 'tp_active':
+        audio.play('tp_charge');
         audio.play('tp_active');
+        particles.burst(e.x, e.y, 'teal', 20, 0.8, 1.0, { layer: 'over', glow: true, up: -0.6 });
         particles.burst(e.x, e.y, 'teal', 24, 1.8, 0.8, { layer: 'over', glow: true });
         break;
       case 'tp_depart':
@@ -649,6 +647,7 @@ function bindUi() {
   $('btn-e').addEventListener('click', () => input.push({ type: 'interact' }));
   $('minimap').addEventListener('click', () => { if (S.game && S.game.mode === 'play') { S.game.toggleMap(); updateMapView(); } });
   $('bigmap').addEventListener('click', onBigMapTap);
+  $('btn-map-close').addEventListener('click', (e) => { e.stopPropagation(); if (S.game) { S.game.cancelOverlay(); updateMapView(); } });
   $('mapview').addEventListener('click', (e) => { if (e.target.id === 'mapview' && S.game) { S.game.cancelOverlay(); updateMapView(); } });
 
   // 결과
@@ -714,6 +713,22 @@ function handleGameEvent(ev) {
   updateMapView();
 }
 
+// 텔레포트 선택 중: 조이스틱을 한 방향으로 밀면 그 방향의 텔레포트로 선택이 옮겨간다 (E 버튼으로 이동)
+let joyLatched = false;
+function joystickSelect(g) {
+  const j = input.joy;
+  if (g.mode !== 'tpselect' || !j.active) { joyLatched = false; return; }
+  const mag = Math.hypot(j.x, j.y);
+  if (joyLatched) {
+    if (mag < 0.3) joyLatched = false;
+    return;
+  }
+  if (mag < CONFIG.interact.joyFlick) return;
+  joyLatched = true;
+  const dir = Math.abs(j.x) > Math.abs(j.y) ? (j.x > 0 ? 'right' : 'left') : (j.y > 0 ? 'down' : 'up');
+  g.moveTeleportSelection(dir);
+}
+
 // ---------------- 메인 루프 ----------------
 let last = performance.now();
 function frame(now) {
@@ -724,6 +739,7 @@ function frame(now) {
   const g = S.game;
   if (g && S.screen === null) {
     for (const ev of input.drain()) handleGameEvent(ev);
+    joystickSelect(g);
     if (!input.enabled) input.drain();
     g.update(dt, input.moveVector());
     processFx(g);

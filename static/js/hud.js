@@ -80,7 +80,7 @@ export class Hud {
     if (!tg) return '';
     switch (tg.type) {
       case 'torch': return t('prompt.torch');
-      case 'key': return t('prompt.key');
+      case 'key': return g.heldKeys().length ? t('prompt.key_full') : t('prompt.key');
       case 'tpActivate': return t('prompt.tp_activate');
       case 'tpUse': return t('prompt.tp_use');
       case 'door': return g.heldKeys().length ? t('prompt.door') : t('prompt.door_locked');

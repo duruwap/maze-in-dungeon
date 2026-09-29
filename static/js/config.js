@@ -16,10 +16,10 @@ export const CONFIG = {
     losRadius: 15,           // 멀리 있는 횃불빛을 볼 수 있는 시선 거리
     lerp: 2.0,               // 반경 변화 부드럽게 (초당)
   },
-  torch: { radius: 4, lightMs: 500, flicker: 0.03 },
-  teleport: { activateMs: 1000, travelMs: 500, arriveMs: 300 },
-  door: { unlockMs: 600, openMs: 500 },
-  interact: { reach: 1.2, facingBias: 0.35, standOn: 0.62, keyAnimMs: 250 },
+  torch: { radius: 4, lightMs: 300, flicker: 0.03 },   // lightMs: 켜는 모션(이동을 막지 않음)
+  teleport: { activateMs: 600, arriveMs: 300 },  // 연출 시간 (상호작용 효과는 즉시 적용)
+  door: { openMs: 500 },
+  interact: { reach: 1.2, facingBias: 0.35, standOn: 0.62, keyAnimMs: 250, joyFlick: 0.6 },
   keySparkleRadius: 6,
 
   saveIntervalMs: 5000,

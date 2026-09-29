@@ -21,10 +21,13 @@ window.__autoplay = function (opts = {}) {
     for (let i = goal; i !== from; i = prev[i]) path.push(i);
     return path.reverse();
   }
+  // 열쇠는 한 번에 하나만: 열쇠 → 문 → 다음 열쇠 ...
   const goals = [];
-  g.keys.forEach((k) => goals.push({ type: 'key', i: k.y * W + k.x }));
   const d = g.maze.door;
-  goals.push({ type: 'door', i: (d.y + 1) * W + d.x });
+  g.keys.forEach((k, ki) => {
+    goals.push({ type: 'key', k: ki, i: k.y * W + k.x });
+    goals.push({ type: 'door', k: ki, i: (d.y + 1) * W + d.x });
+  });
   goals.push({ type: 'exit', i: g.maze.exit.y * W + g.maze.exit.x });
   let gi = 0;
   let path = null;
@@ -41,8 +44,8 @@ window.__autoplay = function (opts = {}) {
     const cur = Math.floor(p.y) * W + Math.floor(p.x);
     const goal = goals[gi];
     if (!goal) return;
-    if (goal.type === 'key' && game.keyState[gi] !== 0) { gi++; path = null; return; }
-    if (goal.type === 'door' && game.doorOpen) { gi++; path = null; return; }
+    if (goal.type === 'key' && game.keyState[goal.k] !== 0) { gi++; path = null; return; }
+    if (goal.type === 'door' && game.keyState[goal.k] === 2) { gi++; path = null; return; }
     if (cur === goal.i && goal.type !== 'exit') {
       const cx = (goal.i % W) + 0.5; const cy = ((goal.i / W) | 0) + 0.5;
       if (Math.hypot(p.x - cx, p.y - cy) < 0.3 || goal.type === 'key') {

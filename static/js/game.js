@@ -40,6 +40,7 @@ export class Game {
       walkT: 0, idleT: 0, lastStepFrame: -1,
     };
     this.action = null;
+    this.anim = null;
     this.mode = 'play';       // play | map | tpselect | done
     this.paused = false;
     this.started = false;
@@ -302,29 +303,43 @@ export class Game {
     this.action = { type, t: 0, dur, ...data };
   }
 
+  /** 이동을 막지 않는 모션(연출 전용). 효과는 상호작용 순간 바로 적용된다 */
+  _startAnim(type, dur, data = {}) {
+    this.anim = { type, t: 0, dur, ...data };
+  }
+
   interact() {
     if (this.paused) return;
     if (this.mode === 'tpselect') { this.confirmTeleport(); return; }
     if (this.mode !== 'play' || this.action || !this.target) return;
     const { type, id } = this.target;
     const p = this.player;
-    const face = (x, y) => this._face(x - p.x, y - p.y);
+    const face = (x, y) => { if (!p.moving) this._face(x - p.x, y - p.y); };
     if (type === 'torch') {
       const t = this.torches[id];
       face(t.ix, t.iy);
-      this._startAction('torch', CONFIG.torch.lightMs, { id });
-      this._emit('torch_start', { x: t.ix, y: t.iy });
+      this.torchLit[id] = 1;
+      this._computeTorchLight(id);
+      this._startAnim('torch', CONFIG.torch.lightMs, { id });
+      this._emit('torch_lit', { id, x: t.ix, y: t.iy });
     } else if (type === 'key') {
       const k = this.keys[id];
       face(k.x + 0.5, k.y + 0.5);
+      // 열쇠는 한 번에 하나만: 들고 있는 열쇠를 먼저 문에 넣어야 한다
+      if (this.heldKeys().length) {
+        this._setStatus('status.one_key', null, CONFIG.toastMs);
+        this._emit('denied');
+        return;
+      }
       this.keyState[id] = 1;
-      this._startAction('key', CONFIG.interact.keyAnimMs, { id });
+      this._startAnim('key', CONFIG.interact.keyAnimMs, { id });
       this._emit('key', { id, color: k.color, x: k.x + 0.5, y: k.y + 0.5, collected: this.collectedCount() });
-      if (this.collectedCount() === this.totalKeys) this._emit('all_keys');
     } else if (type === 'tpActivate') {
       const t = this.teleports[id];
-      this._startAction('tpActivate', CONFIG.teleport.activateMs, { id });
-      this._emit('tp_charge', { x: t.x + 0.5, y: t.y + 0.5 });
+      this.tpActive[id] = 1;
+      this._startAnim('tpActivate', CONFIG.teleport.activateMs, { id });
+      this._emit('tp_active', { id, x: t.x + 0.5, y: t.y + 0.5 });
+      this._setStatus('status.teleport_on', null, CONFIG.toastMs);
     } else if (type === 'tpUse') {
       this.openTeleportSelect(id);
     } else if (type === 'door') {
@@ -332,11 +347,26 @@ export class Game {
       face(d.x + 0.5, d.y + 0.5);
       const held = this.heldKeys();
       if (!held.length) {
-        this._setStatus('status.keys_needed', { have: this.collectedCount(), total: this.totalKeys });
+        this._setStatus('status.keys_needed', { have: this.insertedCount(), total: this.totalKeys });
         this._emit('denied');
         return;
       }
-      this._startAction('door', CONFIG.door.unlockMs, { keys: held, inserted: 0 });
+      for (const k of held) {
+        this.keyState[k] = 2;
+        this._emit('lock', { color: this.keys[k].color, n: this.insertedCount() });
+      }
+      this._startAnim('door', CONFIG.interact.keyAnimMs);
+      if (this.insertedCount() === this.totalKeys) {
+        // 문은 즉시 통과 가능, 열리는 모습만 연출
+        this.doorOpen = true;
+        this.doorAnim = 0;
+        this.losDirty = true;
+        this._recomputeAllTorchLight();
+        this._emit('door_open');
+      } else {
+        this._setStatus('status.keys_inserted', { have: this.insertedCount(), total: this.totalKeys }, CONFIG.toastMs);
+        this._emit('key_inserted', { left: this.totalKeys - this.insertedCount() });
+      }
     }
   }
 
@@ -351,44 +381,6 @@ export class Game {
       p.flip = dx < 0;
     } else {
       p.dir = dy < 0 ? 'up' : 'down';
-    }
-  }
-
-  _finishAction() {
-    const a = this.action;
-    this.action = null;
-    if (a.type === 'torch') {
-      this.torchLit[a.id] = 1;
-      this._computeTorchLight(a.id);
-      const t = this.torches[a.id];
-      this._emit('torch_lit', { id: a.id, x: t.ix, y: t.iy });
-    } else if (a.type === 'tpActivate') {
-      this.tpActive[a.id] = 1;
-      const t = this.teleports[a.id];
-      this._emit('tp_active', { id: a.id, x: t.x + 0.5, y: t.y + 0.5 });
-      this._setStatus('status.teleport_on', null, CONFIG.toastMs);
-    } else if (a.type === 'door') {
-      for (const k of a.keys) this.keyState[k] = 2;
-      if (this.insertedCount() === this.totalKeys) {
-        this._startAction('doorOpen', CONFIG.door.openMs);
-        this._emit('door_open');
-      } else {
-        this._setStatus('status.keys_inserted', { have: this.insertedCount(), total: this.totalKeys });
-      }
-    } else if (a.type === 'doorOpen') {
-      this.doorOpen = true;
-      this.doorAnim = 1;
-      this.losDirty = true;
-      this._recomputeAllTorchLight();
-    } else if (a.type === 'teleport') {
-      const t = this.teleports[a.to];
-      this.player.x = t.x + 0.5;
-      this.player.y = t.y + 0.5;
-      this.player.dir = 'down';
-      this.losDirty = true;
-      this.teleportsUsed++;
-      this._startAction('arrive', CONFIG.teleport.arriveMs, { to: a.to });
-      this._emit('tp_arrive', { x: t.x + 0.5, y: t.y + 0.5 });
     }
   }
 
@@ -439,9 +431,16 @@ export class Game {
     this.tpSel = null;
     this.mode = 'play';
     if (sel === from) return;
-    const t = this.teleports[from];
-    this._startAction('teleport', CONFIG.teleport.travelMs, { from, to: sel });
-    this._emit('tp_depart', { x: t.x + 0.5, y: t.y + 0.5 });
+    const f = this.teleports[from];
+    const t = this.teleports[sel];
+    this._emit('tp_depart', { x: f.x + 0.5, y: f.y + 0.5 });
+    // 즉시 이동, 도착 연출은 이동을 막지 않는다
+    this.player.x = t.x + 0.5;
+    this.player.y = t.y + 0.5;
+    this.losDirty = true;
+    this.teleportsUsed++;
+    this._startAnim('arrive', CONFIG.teleport.arriveMs, { to: sel });
+    this._emit('tp_arrive', { x: t.x + 0.5, y: t.y + 0.5 });
   }
 
   cancelOverlay() {
@@ -465,20 +464,12 @@ export class Game {
     const k = Math.min(1, dt * CONFIG.vision.lerp);
     this.visionR += (tv - this.visionR) * k;
 
-    if (this.action) {
-      this.action.t += dt * 1000;
-      const a = this.action;
-      if (a.type === 'door') {
-        // 열쇠를 하나씩 꽂는 소리
-        const n = Math.min(a.keys.length, Math.floor(a.t / (a.dur / a.keys.length)) + 1);
-        while (a.inserted < n) {
-          const kid = a.keys[a.inserted++];
-          this._emit('lock', { color: this.keys[kid].color, n: this.insertedCount() + a.inserted });
-        }
-      }
-      if (a.type === 'doorOpen') this.doorAnim = Math.min(1, a.t / a.dur);
-      if (a.t >= a.dur) this._finishAction();
+    if (this.action) this.action.t += dt * 1000;   // 'clear' (게임 종료) 만 남는다
+    if (this.anim) {
+      this.anim.t += dt * 1000;
+      if (this.anim.t >= this.anim.dur) this.anim = null;
     }
+    if (this.doorOpen && this.doorAnim < 1) this.doorAnim = Math.min(1, this.doorAnim + dt * 1000 / CONFIG.door.openMs);
 
     const p = this.player;
     let mx = 0;

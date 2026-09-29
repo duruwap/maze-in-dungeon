@@ -241,8 +241,8 @@ export class Renderer {
       if (!this._inView(t.x, t.y)) return;
       let name = 'tp.off';
       if (g.tpActive[i]) name = `tp.on.${Math.floor(time * A.tpFps) % 6}`;
-      else if (g.action && g.action.type === 'tpActivate' && g.action.id === i) {
-        name = `tp.on.${Math.floor(g.action.t / 80) % 6}`;
+      if (g.anim && g.anim.type === 'tpActivate' && g.anim.id === i) {
+        name = `tp.on.${Math.floor(g.anim.t / 60) % 6}`;
       }
       S.draw(ctx, name, ox + t.x * tp, oy + t.y * tp, tp, tp);
     });
@@ -250,13 +250,8 @@ export class Renderer {
     const d = g.maze.door;
     if (this._inView(d.x, d.y)) {
       let name;
-      if (g.doorOpen) name = 'door.open.3';
-      else if (g.action && g.action.type === 'doorOpen') name = `door.open.${Math.min(3, Math.floor(g.doorAnim * 4))}`;
-      else {
-        let filled = g.insertedCount();
-        if (g.action && g.action.type === 'door') filled += g.action.inserted;
-        name = `door.${g.totalKeys}.${Math.min(filled, g.totalKeys)}`;
-      }
+      if (g.doorOpen) name = `door.open.${Math.min(3, Math.floor(g.doorAnim * 4))}`;
+      else name = `door.${g.totalKeys}.${Math.min(g.insertedCount(), g.totalKeys)}`;
       S.draw(ctx, name, ox + d.x * tp, oy + d.y * tp, tp, tp);
     }
     // 횃불 (벽에 붙어 있다)
@@ -272,13 +267,6 @@ export class Renderer {
       if (t.wall === 'W') px += tp * 0.5;
       if (t.wall === 'S') py -= tp * 0.55;
       S.draw(ctx, name, px, py, tp, tp, t.wall === 'W');
-      // 켜는 중
-      if (g.action && g.action.type === 'torch' && g.action.id === i) {
-        const k = g.action.t / g.action.dur;
-        ctx.globalAlpha = k;
-        S.draw(ctx, side ? `torch.side.on.${f}` : `torch.on.${f}`, px, py, tp, tp, t.wall === 'W');
-        ctx.globalAlpha = 1;
-      }
     });
     // 열쇠 (바닥에서 살짝 떠 있다)
     g.keys.forEach((k, i) => {
@@ -292,14 +280,13 @@ export class Renderer {
     const p = g.player;
     const A = CONFIG.anim;
     const a = g.action;
-    if (a) {
-      if (a.type === 'teleport') return `player.teleport.${Math.min(2, Math.floor(a.t / a.dur * 3))}`;
-      if (a.type === 'arrive') return `player.teleport.${3 + Math.min(2, Math.floor(a.t / a.dur * 3))}`;
-      if (a.type === 'clear') return `player.clear.${Math.min(3, Math.floor(a.t / 1000 * A.clearFps))}`;
-      if (a.type === 'torch' || a.type === 'key' || a.type === 'door' || a.type === 'tpActivate') {
-        const f = Math.min(2, Math.floor(a.t / 1000 * A.interactFps));
-        return `player.interact.${p.dir}.${f}`;
-      }
+    if (a && a.type === 'clear') return `player.clear.${Math.min(3, Math.floor(a.t / 1000 * A.clearFps))}`;
+    const m = g.anim;
+    if (m && !p.moving) {
+      // 연출 전용 모션: 움직이기 시작하면 바로 걷기 모션으로 바뀐다
+      if (m.type === 'arrive') return `player.teleport.${3 + Math.min(2, Math.floor(m.t / m.dur * 3))}`;
+      const f = Math.min(2, Math.floor(m.t / 1000 * A.interactFps));
+      return `player.interact.${p.dir}.${f}`;
     }
     if (p.moving) return `player.walk.${p.dir}.${Math.floor(p.walkT) % 6}`;
     return `player.idle.${p.dir}.${Math.floor(p.idleT * A.idleFps) % 4}`;

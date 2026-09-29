@@ -50,7 +50,7 @@ export class Input {
     window.addEventListener('blur', () => this.down.clear());
   }
 
-  /** 모바일: 화면 왼쪽 절반 어디든 누르면 조이스틱이 생긴다 */
+  /** 모바일: 화면 어디든(버튼 제외) 누르면 그 자리에 조이스틱이 생긴다 */
   bindTouch(surface, joyEl, knobEl) {
     this.joyEl = joyEl;
     this.knobEl = knobEl;
@@ -63,7 +63,6 @@ export class Input {
       if (!this.enabled) return;
       for (const t of e.changedTouches) {
         if (this.joy.active) break;
-        if (t.clientX > window.innerWidth / 2) continue;
         this.joy = { active: true, id: t.identifier, ox: t.clientX, oy: t.clientY, x: 0, y: 0 };
         joyEl.style.left = `${t.clientX}px`;
         joyEl.style.top = `${t.clientY}px`;
