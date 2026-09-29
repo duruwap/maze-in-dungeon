@@ -6,6 +6,8 @@ from flask import Flask, jsonify, render_template, request
 
 from .config import Config
 
+APP_VERSION = "1.0.0"
+
 
 def create_app(test_config=None):
     app = Flask(__name__, static_folder="../static", static_url_path="/static",
@@ -27,12 +29,15 @@ def create_app(test_config=None):
     except ImportError:   # 5단계 이전
         pass
 
+    from .i18n import pick_lang, texts
+
     @app.get("/")
     def index():
-        lang = request.args.get("lang")
-        if lang not in ("ko", "en", "zh", "ja"):
-            lang = (request.accept_languages.best_match(["ko", "en", "zh", "ja"]) or "en")
-        return render_template("index.html", lang=lang, cfg=app.config)
+        lang = pick_lang(request)
+        boot = {"kakaoKey": app.config["KAKAO_JS_KEY"], "baseUrl": app.config["BASE_URL"],
+                "version": APP_VERSION}
+        return render_template("index.html", lang=lang, cfg=app.config, texts=texts(lang),
+                               boot=boot, version=APP_VERSION)
 
     @app.errorhandler(404)
     def not_found(_e):

@@ -1,1 +1,192 @@
-<!doctype html><html lang="{{ lang }}"><head><meta charset="utf-8"><title>Maze in Dungeon</title></head><body></body></html>
+<!doctype html>
+<html lang="{{ {'zh': 'zh-CN'}.get(lang, lang) }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0B0E1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>{{ texts['title'] }}</title>
+<meta name="description" content="{{ texts['share.page_desc'] }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ texts['title'] }}">
+<meta property="og:description" content="{{ texts['share.page_desc'] }}">
+<meta property="og:image" content="{{ cfg.BASE_URL }}/og/default.png?lang={{ lang }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ cfg.BASE_URL }}/?lang={{ lang }}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/icon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
+<script>window.__BOOT__ = {{ boot | tojson }};</script>
+{% if cfg.KAKAO_JS_KEY %}
+<script src="{{ cfg.KAKAO_SDK_URL }}" integrity="{{ cfg.KAKAO_SDK_INTEGRITY }}" crossorigin="anonymous" defer></script>
+{% endif %}
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="touch-surface"></div>
+
+<!-- 게임 HUD -->
+<div id="hud" hidden>
+  <div id="keyslots" aria-label="keys"></div>
+  <div id="timer">0:00.00</div>
+  <canvas id="minimap" data-i18n-aria="hud.map"></canvas>
+  <button id="btn-pause" class="icon-btn" data-i18n-aria="hud.pause"><span class="pause-bars"></span></button>
+  <div id="prompt"><span class="ekey">E</span><span id="prompt-text"></span></div>
+  <div id="status"></div>
+  <div id="toast"></div>
+  <div id="hint" hidden></div>
+  <button id="btn-e" aria-label="E">E</button>
+  <div id="joystick"><div class="knob"></div></div>
+</div>
+
+<!-- 전체 지도 / 텔레포트 선택 -->
+<div id="mapview" hidden>
+  <div class="map-head"><span id="map-title"></span></div>
+  <canvas id="bigmap"></canvas>
+  <div class="map-foot" id="map-hint"></div>
+</div>
+
+<!-- 우상단 아이콘 -->
+<div id="topicons">
+  <button class="icon-btn" id="btn-fullscreen" data-i18n-aria="settings.fullscreen">⛶</button>
+  <button class="icon-btn" id="btn-settings" data-i18n-aria="common.settings">⚙️</button>
+  <button class="icon-btn" id="btn-howto" data-i18n-aria="common.howto">📖</button>
+  <button class="icon-btn" id="btn-lang" data-i18n-aria="common.language">🌐</button>
+</div>
+
+<!-- 타이틀 -->
+<section id="screen-title" class="screen">
+  <canvas id="title-bg"></canvas>
+  <div class="title-inner">
+    <img id="logo" src="{{ url_for('static', filename='assets/logo.png') }}" alt="">
+    <h1 data-i18n="title">{{ texts['title'] }}</h1>
+    <p class="subtitle" data-i18n="subtitle"></p>
+    <button id="btn-daily" class="btn big primary">
+      <span data-i18n="daily"></span><small data-i18n="title.daily_desc"></small>
+    </button>
+    <div class="free-box">
+      <div class="free-label" data-i18n="title.free"></div>
+      <div class="diff-row">
+        <button class="btn diff" data-diff="easy"><span data-i18n="difficulty.easy"></span><small data-i18n="difficulty.easy_desc"></small></button>
+        <button class="btn diff" data-diff="normal"><span data-i18n="difficulty.normal"></span><small data-i18n="difficulty.normal_desc"></small></button>
+        <button class="btn diff" data-diff="hard"><span data-i18n="difficulty.hard"></span><small data-i18n="difficulty.hard_desc"></small></button>
+      </div>
+    </div>
+    <button id="btn-ranking" class="btn" data-i18n="title.ranking"></button>
+    <div class="title-foot"><span id="explorer-name"></span><span id="today-best"></span></div>
+  </div>
+</section>
+
+<!-- 결과 -->
+<section id="screen-result" class="screen" hidden>
+  <div class="result-inner">
+    <h2 data-i18n="result.title"></h2>
+    <div class="result-label" data-i18n="result.time"></div>
+    <div id="result-time">0:00.00</div>
+    <div id="result-newbest" data-i18n="result.new_best" hidden></div>
+    <div id="result-rank"></div>
+    <div id="result-note"></div>
+    <div class="result-body">
+      <figure class="path-fig"><canvas id="result-path"></canvas><figcaption data-i18n="result.path"></figcaption></figure>
+      <ul class="stats">
+        <li><span data-i18n="result.torches"></span><b id="stat-torches"></b></li>
+        <li><span data-i18n="result.teleports"></span><b id="stat-teleports"></b></li>
+        <li><span data-i18n="result.explored"></span><b id="stat-explored"></b></li>
+        <li id="stat-best-row"><span id="stat-best"></span></li>
+      </ul>
+    </div>
+    <div class="share-row" id="share-row">
+      <button class="btn kakao" id="btn-kakao" data-i18n="result.share_kakao"></button>
+      <button class="btn" id="btn-webshare" data-i18n="result.share"></button>
+      <button class="btn" id="btn-copy" data-i18n="result.copy_link"></button>
+    </div>
+    <div class="action-row">
+      <button class="btn primary" id="btn-retry" data-i18n="result.retry"></button>
+      <button class="btn" id="btn-result-ranking" data-i18n="result.view_ranking"></button>
+      <button class="btn ghost" id="btn-result-title" data-i18n="result.to_title"></button>
+    </div>
+  </div>
+</section>
+
+<!-- 랭킹 -->
+<section id="screen-ranking" class="screen" hidden>
+  <div class="ranking-inner">
+    <div class="ranking-head">
+      <button class="btn ghost small" id="btn-ranking-back" data-i18n="common.back"></button>
+      <h2 data-i18n="ranking.title"></h2>
+      <span></span>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" data-board="daily" data-i18n="ranking.tab_daily"></button>
+      <button class="tab" data-board="easy" data-i18n="difficulty.easy"></button>
+      <button class="tab" data-board="normal" data-i18n="difficulty.normal"></button>
+      <button class="tab" data-board="hard" data-i18n="difficulty.hard"></button>
+    </div>
+    <div class="ranking-sub" id="ranking-sub"></div>
+    <ol id="ranking-list"></ol>
+    <div id="ranking-me"></div>
+  </div>
+</section>
+
+<!-- 일시정지: 화면 전체를 가린다 -->
+<div id="modal-pause" class="overlay opaque" hidden>
+  <div class="panel">
+    <h2 data-i18n="pause.title"></h2>
+    <button class="btn primary big" id="btn-resume" data-i18n="pause.resume"></button>
+    <button class="btn" id="btn-newmap" data-i18n="pause.new_map"></button>
+    <button class="btn ghost" id="btn-totitle" data-i18n="pause.to_title"></button>
+  </div>
+</div>
+
+<div id="modal-settings" class="overlay" hidden>
+  <div class="panel">
+    <h2 data-i18n="settings.title"></h2>
+    <label class="row"><span data-i18n="settings.sfx"></span><input type="range" id="set-sfx" min="0" max="100"></label>
+    <label class="row"><span data-i18n="settings.bgm"></span><input type="range" id="set-bgm" min="0" max="100"></label>
+    <label class="row"><span data-i18n="settings.shake"></span><input type="checkbox" id="set-shake"></label>
+    <label class="row"><span data-i18n="settings.flicker"></span><input type="checkbox" id="set-flicker"></label>
+    <button class="btn" data-close data-i18n="common.close"></button>
+  </div>
+</div>
+
+<div id="modal-howto" class="overlay" hidden>
+  <div class="panel wide">
+    <h2 data-i18n="howto.title"></h2>
+    <div class="howto-steps">
+      <figure><canvas class="howto-pic" data-step="1"></canvas><figcaption data-i18n="howto.step1"></figcaption></figure>
+      <figure><canvas class="howto-pic" data-step="2"></canvas><figcaption data-i18n="howto.step2"></figcaption></figure>
+      <figure><canvas class="howto-pic" data-step="3"></canvas><figcaption data-i18n="howto.step3"></figcaption></figure>
+    </div>
+    <button class="btn" data-close data-i18n="common.close"></button>
+  </div>
+</div>
+
+<div id="modal-lang" class="overlay" hidden>
+  <div class="panel">
+    <h2 data-i18n="language.title"></h2>
+    <button class="btn lang" data-lang="ko">한국어</button>
+    <button class="btn lang" data-lang="en">English</button>
+    <button class="btn lang" data-lang="zh">简体中文</button>
+    <button class="btn lang" data-lang="ja">日本語</button>
+    <button class="btn ghost" data-close data-i18n="common.close"></button>
+  </div>
+</div>
+
+<div id="modal-resume" class="overlay" hidden>
+  <div class="panel">
+    <h2 data-i18n="resume.title"></h2>
+    <p data-i18n="resume.desc"></p>
+    <p class="note" data-i18n="resume.note"></p>
+    <button class="btn primary" id="btn-resume-yes" data-i18n="resume.continue"></button>
+    <button class="btn ghost" id="btn-resume-no" data-i18n="resume.discard"></button>
+  </div>
+</div>
+
+<div id="loading" hidden><div class="spinner"></div><span data-i18n="title.loading"></span></div>
+<div id="flash-msg"></div>
+
+<script type="module" src="{{ url_for('static', filename='js/main.js') }}?v={{ version }}"></script>
+</body>
+</html>
